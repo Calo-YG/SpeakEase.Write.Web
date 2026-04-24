@@ -1,0 +1,131 @@
+.notification-container {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  max-width: 380px;
+  width: calc(100vw - 2.5rem);
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  padding-bottom: 0.85rem;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  will-change: transform, opacity;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: box-shadow 0.2s;
+}
+.notification:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
+}
+
+/* ---- 类型配色 ---- */
+.notification--success {
+  background: rgba(240, 253, 244, 0.92);
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+.notification--success .notification-icon { color: #22c55e; }
+.notification--success .notification-progress { background: #22c55e; }
+
+.notification--error {
+  background: rgba(254, 242, 242, 0.92);
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.notification--error .notification-icon { color: #ef4444; }
+.notification--error .notification-progress { background: #ef4444; }
+
+.notification--warning {
+  background: rgba(255, 251, 235, 0.92);
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.notification--warning .notification-icon { color: #f59e0b; }
+.notification--warning .notification-progress { background: #f59e0b; }
+
+.notification--info {
+  background: rgba(239, 246, 255, 0.92);
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+.notification--info .notification-icon { color: #3b82f6; }
+.notification--info .notification-progress { background: #3b82f6; }
+
+/* ---- 子元素 ---- */
+.notification-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+.notification-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.notification-message {
+  flex: 1;
+  word-break: break-word;
+}
+.notification-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: inherit;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.notification:hover .notification-close { opacity: 0.4; }
+.notification-close:hover { opacity: 0.8 !important; }
+
+/* ---- 进度条 ---- */
+.notification-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  border-radius: 0 0 12px 12px;
+  transform-origin: left center;
+  opacity: 0.5;
+  will-change: transform;
+  transition: none;
+}
+
+/* ---- 动画 ---- */
+.notif-enter-active {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.notif-leave-active {
+  transition: all 0.32s cubic-bezier(0.4, 0, 1, 1);
+}
+.notif-enter-from {
+  opacity: 0;
+  transform: translateX(60px) scale(0.92);
+}
+.notif-leave-to {
+  opacity: 0;
+  transform: translateX(50px) scale(0.92);
+}
+.notif-move {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}

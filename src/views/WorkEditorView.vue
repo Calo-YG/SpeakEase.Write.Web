@@ -1,0 +1,396 @@
+<template>
+  <div class="work-editor-view" :style="editorCssVars">
+    <!-- 顶部导航栏 -->
+    <EditorTopBar
+      :work-title="work?.title ?? '未命名作品'"
+      :genre="work?.genre ?? ''"
+      :chapter-title="activeChapter?.title ?? ''"
+      :word-count="currentWordCount"
+      :daily-count="dailyWordCount"
+      :is-fullscreen="isFullscreen"
+      :show-settings="showSettings"
+      @back="$emit('back')"
+      @save="handleSave"
+      @toggle-fullscreen="handleToggleFullscreen"
+      @settings="showSettings = !showSettings"
+    />
+
+    <!-- 主体布局：侧边栏 + 编辑区 + AI对话面板 -->
+    <div class="editor-layout">
+      <!-- 章节侧边栏 -->
+      <ChapterSidebar
+        :chapters="chapters"
+        :active-chapter-id="activeChapterId"
+        @select="handleSelectChapter"
+        @new-chapter="openNewChapterModal"
+      />
+
+      <!-- 右侧编辑区 -->
+      <div class="editor-main">
+        <!-- AI 工具栏 -->
+        <EditorToolbar
+          :show-characters="showCharacters"
+          :show-outline="showOutline"
+          :show-ai-chat="showAiChat"
+          @ai-continue="handleAiContinue"
+          @ai-write="handleAiWrite"
+          @polish="handlePolish"
+          @inspire="handleInspire"
+          @toggle-characters="showCharacters = !showCharacters"
+          @toggle-outline="showOutline = !showOutline"
+          @toggle-ai-chat="showAiChat = !showAiChat"
+        />
+
+        <!-- 内容区 -->
+        <div class="editor-content-area" @click="focusEditor">
+          <!-- 空章节提示 -->
+          <div v-if="isChapterEmpty && !hasContent" class="chapter-empty">
+            <div class="chapter-empty-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="13" x2="12" y2="17"/>
+                <line x1="10" y1="15" x2="14" y2="15"/>
+              </svg>
+            </div>
+            <p class="chapter-empty-title">本章节还没有内容</p>
+            <p class="chapter-empty-sub">开始写作，或使用 AI 写本章快速生成内容</p>
+            <button class="chapter-empty-btn" @click="focusEditor">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              开始写作
+            </button>
+          </div>
+
+          <!-- 文档容器 -->
+          <div class="editor-doc-wrapper">
+            <!-- 可编辑章节标题 -->
+            <div
+              ref="titleRef"
+              class="editor-doc-title"
+              contenteditable="true"
+              spellcheck="false"
+              data-placeholder="章节标题…"
+              @input="onTitleInput"
+              @keydown.enter.prevent="focusEditor"
+            ></div>
+
+            <!-- 正文编辑区 -->
+            <div
+              ref="editorRef"
+              class="editor-doc"
+              contenteditable="true"
+              spellcheck="false"
+              :data-placeholder="'在这里开始你的故事…'"
+              @input="onDocInput"
+              @keydown="onDocKeydown"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 对话面板（右侧） -->
+      <Transition name="panel-slide">
+        <AiChatPanel
+          v-if="showAiChat"
+          :work="work"
+          :chapter="activeChapter"
+          @close="showAiChat = false"
+        />
+      </Transition>
+    </div>
+
+    <!-- 编辑器设置面板 -->
+    <EditorSettingsPanel
+      :show="showSettings"
+      :model-value="editorSettings"
+      @close="showSettings = false"
+      @reset="resetSettings"
+      @update:model-value="editorSettings = $event"
+    />
+
+    <!-- 新建章节弹窗 -->
+    <Teleport to="body">
+      <Transition name="confirm">
+        <div v-if="showNewChapterModal" class="new-chapter-modal-overlay" @click.self="showNewChapterModal = false">
+          <Transition name="confirm-panel">
+            <div v-if="showNewChapterModal" class="new-chapter-modal">
+              <p class="ncm-title">新建章节</p>
+              <div class="form-group">
+                <label class="form-label">章节名称 <span class="required">*</span></label>
+                <input
+                  ref="newChapterInputRef"
+                  v-model="newChapterTitle"
+                  type="text"
+                  class="form-input"
+                  placeholder="如：第五章：试炼"
+                  maxlength="50"
+                  @keydown.enter="confirmNewChapter"
+                />
+              </div>
+              <div class="ncm-actions">
+                <button class="modal-btn modal-btn-cancel" @click="showNewChapterModal = false">取消</button>
+                <button
+                  class="modal-btn modal-btn-submit"
+                  :disabled="!newChapterTitle.trim()"
+                  @click="confirmNewChapter"
+                >创建</button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import type { WorkItem } from '@/lib/api'
+import { useNotification } from '@/composables/useNotification'
+import EditorTopBar from '@/components/EditorTopBar.vue'
+import ChapterSidebar from '@/components/ChapterSidebar.vue'
+import type { ChapterItem } from '@/components/ChapterSidebar.vue'
+import EditorToolbar from '@/components/EditorToolbar.vue'
+import AiChatPanel from '@/components/AiChatPanel.vue'
+import EditorSettingsPanel from '@/components/EditorSettingsPanel.vue'
+import type { EditorSettings } from '@/components/EditorSettingsPanel.vue'
+import '../styles/WorkEditorView.css'
+import '../styles/WorksView.css'
+
+// ==================== Props / Emits ====================
+const props = defineProps<{ work: WorkItem | null }>()
+defineEmits<{ back: [] }>()
+
+const notify = useNotification()
+
+// ==================== 章节数据 ====================
+const chapters = ref<ChapterItem[]>([
+  { id: 'ch1', title: '第一章：觉醒', wordCount: 3200, badge: 'published' },
+  { id: 'ch2', title: '第二章：测试', wordCount: 2800, badge: 'published' },
+  { id: 'ch3', title: '第三章：冲突', wordCount: 3500, badge: 'published' },
+  { id: 'ch4', title: '第四章：突破', wordCount: 0, badge: 'draft', note: '未开始' },
+])
+
+// 每章内容（key = chapterId）
+const chapterContents: Record<string, string> = {
+  ch1: `<p>清晨的薄雾还未散去，林凡便已站在了宗门武场的中央。</p><p>今日是一年一度的武魂觉醒大典，对于每一名年满十八的弟子来说，这一天将决定他们未来数十年乃至一生的命运。</p><p>宗门长老高坐于台上，目光扫过台下密密麻麻的年轻面孔，最终落在了角落里那个略显孤单的少年身上。<span class="ai-text">那是林凡——林家旁系中最不起眼的一个。</span></p>`,
+  ch2: `<p>觉醒仪式结束后的第三天，林凡被通知前往试炼塔接受初级测试。</p><p>试炼塔共有十二层，每一层都封印着对应等级的凶兽残影。对于刚刚觉醒的新生弟子而言，能够通过前三层，便已算得上中等资质。</p><p><span class="ai-text">然而林凡在第五层停下了脚步——不是因为力竭，而是因为他感受到了某种异样。</span></p>`,
+  ch3: `<p>消息传开的速度比林凡预想的要快得多。</p><p>不到半天，整个宗门便已人尽皆知：那个一直被视为废物的林家旁系子弟，在试炼塔中打破了近二十年来的最高记录。</p><p>有人嫉妒，有人不信，也有人开始悄悄改变对他的看法。<span class="ai-text">而那些曾经嘲笑过他的人，此刻的神情却是格外的精彩。</span></p>`,
+  ch4: `<p>林凡站在测试台前，深吸一口气。今天是他<span class="ai-text">十八岁</span>的生日，<span class="ai-text">也是觉醒武魂的日子</span>。</p><p>"下一个，林凡！"</p><p>听到自己的名字，林凡迈步走上前去。周围传来窃窃私语声，大多是嘲笑和不屑。作为林家旁系子弟，他的地位本就低下，更何况父母早逝，<span class="ai-text">更是无依无常</span>。</p><p>但林凡并不在意<span class="ai-text">这些。他伸出手，按在觉醒石上</span>。</p>`,
+}
+
+const activeChapterId = ref('ch4')
+const activeChapter = computed(() => chapters.value.find(c => c.id === activeChapterId.value) ?? null)
+
+// ==================== 编辑器 ====================
+const editorRef = ref<HTMLElement | null>(null)
+const titleRef = ref<HTMLElement | null>(null)
+const dailyWordCount = ref(1250)
+
+const currentWordCount = computed(() => {
+  const text = editorRef.value?.innerText ?? ''
+  return text.replace(/\s/g, '').length
+})
+
+const hasContent = computed(() => {
+  const ch = activeChapterId.value
+  return !!(chapterContents[ch]?.trim())
+})
+
+const isChapterEmpty = computed(() => !hasContent.value)
+
+function loadChapterContent(chId: string) {
+  if (!editorRef.value) return
+  editorRef.value.innerHTML = chapterContents[chId] ?? ''
+  // 同步章节标题
+  if (titleRef.value) {
+    const ch = chapters.value.find(c => c.id === chId)
+    titleRef.value.innerText = ch?.title ?? ''
+  }
+}
+
+function onTitleInput() {
+  const newTitle = titleRef.value?.innerText?.trim() ?? ''
+  const ch = chapters.value.find(c => c.id === activeChapterId.value)
+  if (ch && newTitle) ch.title = newTitle
+}
+
+function onDocInput() {
+  const chId = activeChapterId.value
+  chapterContents[chId] = editorRef.value?.innerHTML ?? ''
+  // 更新字数
+  const ch = chapters.value.find(c => c.id === chId)
+  if (ch) ch.wordCount = currentWordCount.value
+}
+
+function onDocKeydown(e: KeyboardEvent) {
+  // 保存快捷键
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault()
+    handleSave()
+  }
+}
+
+function focusEditor() {
+  editorRef.value?.focus()
+}
+
+// ==================== 章节切换 ====================
+function handleSelectChapter(ch: ChapterItem) {
+  // 保存当前章节
+  chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
+  activeChapterId.value = ch.id
+  nextTick(() => loadChapterContent(ch.id))
+}
+
+// ==================== 新建章节 ====================
+const showNewChapterModal = ref(false)
+const newChapterTitle = ref('')
+const newChapterInputRef = ref<HTMLInputElement | null>(null)
+
+function openNewChapterModal() {
+  const nextNum = chapters.value.length + 1
+  newChapterTitle.value = `第${['一','二','三','四','五','六','七','八','九','十'][nextNum - 1] ?? nextNum}章：`
+  showNewChapterModal.value = true
+  nextTick(() => newChapterInputRef.value?.focus())
+}
+
+function confirmNewChapter() {
+  const title = newChapterTitle.value.trim()
+  if (!title) return
+  const id = `ch${Date.now()}`
+  chapters.value.push({ id, title, wordCount: 0, badge: 'draft', note: '未开始' })
+  chapterContents[id] = ''
+  showNewChapterModal.value = false
+  handleSelectChapter({ id, title })
+  notify.success(`章节「${title}」已创建`)
+}
+
+// ==================== AI 功能 ====================
+function handleAiContinue(text: string) {
+  if (!editorRef.value) return
+  const p = document.createElement('p')
+  p.innerHTML = `<span class="ai-text">${text.replace(/\n\n/g, '</p><p class="ai-text">').trim()}</span>`
+  editorRef.value.appendChild(p)
+  onDocInput()
+  // 滚动到底部
+  const area = editorRef.value.parentElement
+  if (area) area.scrollTop = area.scrollHeight
+  notify.success('AI 续写已插入')
+}
+
+function handleAiWrite(text: string) {
+  if (!editorRef.value) return
+  const fragment = text.split('\n\n').filter(Boolean)
+  fragment.forEach(t => {
+    const p = document.createElement('p')
+    p.className = 'ai-block'
+    p.textContent = t.trim()
+    editorRef.value!.appendChild(p)
+  })
+  onDocInput()
+  const area = editorRef.value.parentElement
+  if (area) area.scrollTop = area.scrollHeight
+  notify.success('AI 写本章内容已插入')
+}
+
+function handlePolish() {
+  notify.info('润色功能即将上线')
+}
+
+function handleInspire() {
+  notify.info('灵感功能即将上线')
+}
+
+// ==================== 保存 ====================
+function handleSave() {
+  chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
+  notify.success('已保存')
+}
+
+// ==================== 侧边板 ====================
+const showCharacters = ref(false)
+const showOutline = ref(false)
+const showAiChat = ref(false)
+const showSettings = ref(false)
+
+// ==================== 编辑器设置 ====================
+const DEFAULT_SETTINGS: EditorSettings = {
+  fontSize: 15.5,
+  lineHeight: 1.9,
+  docWidth: 700,
+  theme: 'light',
+  autoSave: false,
+}
+
+const editorSettings = ref<EditorSettings>({ ...DEFAULT_SETTINGS })
+
+const editorCssVars = computed(() => {
+  const dark  = editorSettings.value.theme === 'dark'
+  const warm  = editorSettings.value.theme === 'warm'
+  return {
+    '--editor-font-size':  editorSettings.value.fontSize + 'px',
+    '--editor-line-height': String(editorSettings.value.lineHeight),
+    '--editor-doc-width':  editorSettings.value.docWidth + 'px',
+    // ── 背景 / 文字 / 边框 / 次级色 ──────────────────────
+    '--editor-bg':     dark ? '#1a1a2e'  : warm ? '#f5f0e8'  : '#fff',
+    '--editor-text':   dark ? '#c9d1d9'  : warm ? '#3d2b1f'  : '#111827',
+    '--editor-border': dark ? '#2d2d4e'  : warm ? '#d4c4a8'  : '#e5e7eb',
+    '--editor-muted':  dark ? '#8b949e'  : warm ? '#8a7060'  : '#6b7280',
+    // ── 主题感知强调色 ──────────────────────────────────
+    '--editor-accent':        dark ? '#818cf8'              : warm ? '#b45309'  : '#4f46e5',
+    '--editor-accent-light':  dark ? '#a5b4fc'              : warm ? '#d97706'  : '#6366f1',
+    '--editor-accent-bg':     dark ? 'rgba(99,102,241,.2)'  : warm ? '#fef3c7'  : '#eef2ff',
+    '--editor-accent-border': dark ? 'rgba(99,102,241,.4)'  : warm ? '#fcd34d'  : '#c7d2fe',
+  }
+})
+
+function resetSettings() {
+  editorSettings.value = { ...DEFAULT_SETTINGS }
+}
+
+// ==================== 全屏 ====================
+const isFullscreen = ref(false)
+
+function handleToggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {})
+  } else {
+    document.exitFullscreen().catch(() => {})
+  }
+}
+
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement
+}
+
+// ==================== 生命周期 ====================
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null
+
+watch(() => editorSettings.value.autoSave, (val) => {
+  if (autoSaveTimer) clearInterval(autoSaveTimer)
+  if (val) {
+    autoSaveTimer = setInterval(() => {
+      chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
+      notify.success('已自动保存')
+    }, 30000)
+  }
+})
+
+onMounted(() => {
+  loadChapterContent(activeChapterId.value)
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  if (autoSaveTimer) clearInterval(autoSaveTimer)
+})
+
+watch(() => props.work, () => {
+  // 作品切换时可重置
+})
+</script>

@@ -1,0 +1,259 @@
+/* ======================================================
+   ChapterSidebar.css — 章节列表侧边栏
+   ====================================================== */
+
+.chapter-sidebar {
+  width: 260px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--editor-text, #111) 3%, var(--editor-bg, #fafafa));
+  border-right: 1px solid var(--editor-border, #e5e7eb);
+  overflow: hidden;
+  transition: width 0.22s ease, min-width 0.22s ease, background 0.25s, border-color 0.25s;
+}
+
+/* ── 折叠状态 ── */
+.chapter-sidebar.collapsed {
+  width: 48px;
+  min-width: 48px;
+}
+
+/* ── 侧边栏头部 ── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--editor-border, #f3f4f6);
+  flex-shrink: 0;
+  gap: 0.375rem;
+}
+
+/* 折叠时头部居中 */
+.chapter-sidebar.collapsed .sidebar-header {
+  padding: 0;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* ── 折叠/展开切换按钮 ── */
+.sidebar-collapse-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--editor-muted, #9ca3af);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-collapse-btn svg { width: 14px; height: 14px; }
+.sidebar-collapse-btn:hover { background: color-mix(in srgb, var(--editor-text, #374151) 10%, transparent); color: var(--editor-accent, #4f46e5); }
+
+/* ── 折叠状态：章节数量徽标 ── */
+.sidebar-collapsed-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--editor-muted, #9ca3af);
+  background: color-mix(in srgb, var(--editor-text, #111) 6%, var(--editor-bg, #f3f4f6));
+  border-radius: 10px;
+  padding: 0.1rem 0.35rem;
+  line-height: 1.4;
+}
+
+/* ── 折叠状态：竖排章节序号列表 ── */
+.sidebar-collapsed-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-collapsed-list::-webkit-scrollbar { display: none; }
+
+.sidebar-collapsed-item {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--editor-muted, #6b7280);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  border-left: 2px solid transparent;
+}
+.sidebar-collapsed-item:hover {
+  background: color-mix(in srgb, var(--editor-text, #374151) 10%, transparent);
+  color: var(--editor-text, #374151);
+}
+.sidebar-collapsed-item.active {
+  background: var(--editor-accent-bg, #eef2ff);
+  color: var(--editor-accent, #4338ca);
+  border-left-color: var(--editor-accent, #4f46e5);
+}
+
+.sidebar-title {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: var(--editor-text, #111827);
+  letter-spacing: 0.01em;
+}
+
+.sidebar-add-doc {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--editor-muted, #9ca3af);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-add-doc svg { width: 15px; height: 15px; }
+.sidebar-add-doc:hover { background: color-mix(in srgb, var(--editor-text, #374151) 10%, transparent); color: var(--editor-accent, #4f46e5); }
+
+/* ── 章节列表 ── */
+.chapter-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chapter-list::-webkit-scrollbar { width: 4px; }
+.chapter-list::-webkit-scrollbar-track { background: transparent; }
+.chapter-list::-webkit-scrollbar-thumb { background: var(--editor-border, #e5e7eb); border-radius: 2px; }
+
+/* ── 单个章节项 ── */
+.chapter-item {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-left: 2.5px solid transparent;
+  position: relative;
+}
+
+.chapter-item:hover {
+  background: color-mix(in srgb, var(--editor-text, #374151) 8%, transparent);
+}
+
+.chapter-item.active {
+  background: var(--editor-accent-bg, #eef2ff);
+  border-left-color: var(--editor-accent, #4f46e5);
+}
+
+.ch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.ch-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--editor-text, #374151);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.chapter-item.active .ch-title {
+  color: var(--editor-accent, #4338ca);
+}
+
+.ch-badge {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.ch-badge-draft {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.ch-badge-published {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.ch-badge-review {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.ch-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ch-words {
+  font-size: 0.75rem;
+  color: var(--editor-muted, #9ca3af);
+}
+
+.ch-note {
+  font-size: 0.72rem;
+  color: var(--editor-muted, #d1d5db);
+  opacity: 0.7;
+}
+
+/* ── 底部新建按钮 ── */
+.sidebar-footer {
+  padding: 0.625rem 0.75rem;
+  border-top: 1px solid var(--editor-border, #f3f4f6);
+  flex-shrink: 0;
+}
+
+.new-chapter-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.5rem;
+  border: 1.5px dashed var(--editor-border, #d1d5db);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--editor-muted, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  font-family: inherit;
+}
+.new-chapter-btn svg { width: 14px; height: 14px; }
+.new-chapter-btn:hover {
+  border-color: var(--editor-accent-light, #6366f1);
+  color: var(--editor-accent, #4f46e5);
+  background: var(--editor-accent-bg, #eef2ff);
+}

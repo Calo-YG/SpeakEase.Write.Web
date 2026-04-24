@@ -1,0 +1,640 @@
+/* ====================== 整体布局 ====================== */
+.ref-lib {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  max-width: 1280px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ====================== 搜索区域 ====================== */
+.ref-search-area {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.search-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+/* 搜索输入框 */
+.search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 0.875rem;
+  background: #f9fafb;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  gap: 0.5rem;
+}
+.search-input-wrap:focus-within {
+  border-color: #6366f1;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.search-icon {
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.875rem;
+  color: #111827;
+  padding: 0.65rem 0;
+}
+.search-input::placeholder { color: #9ca3af; }
+.search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  transition: color 0.15s;
+}
+.search-clear:hover { color: #6b7280; }
+.search-clear svg { width: 14px; height: 14px; }
+
+/* 筛选下拉 */
+.filter-wrap { position: relative; }
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 1rem;
+  height: 100%;
+  min-height: 42px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.filter-btn:hover { border-color: #6366f1; background: #fafafa; }
+.filter-btn svg:first-child { width: 14px; height: 14px; color: #6b7280; }
+.filter-btn .chevron { width: 14px; height: 14px; transition: transform 0.2s; }
+.filter-btn .chevron.open { transform: rotate(180deg); }
+
+.filter-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  z-index: 100;
+  min-width: 130px;
+  padding: 4px;
+  overflow: hidden;
+}
+.filter-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  border: none;
+  background: none;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: background 0.12s;
+  gap: 0.5rem;
+}
+.filter-option:hover { background: #f3f4f6; }
+.filter-option.active { color: #4f46e5; font-weight: 600; background: #eef2ff; }
+.check-icon { width: 14px; height: 14px; color: #4f46e5; }
+
+/* 下拉动画 */
+.dropdown-enter-active { transition: opacity 0.15s, transform 0.15s; }
+.dropdown-leave-active { transition: opacity 0.1s, transform 0.1s; }
+.dropdown-enter-from { opacity: 0; transform: translateY(-6px); }
+.dropdown-leave-to   { opacity: 0; transform: translateY(-4px); }
+
+/* 热门标签 */
+.hot-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.hot-tags-label {
+  font-size: 0.825rem;
+  color: #6b7280;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.hot-tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hot-tag:hover { background: #eef2ff; border-color: #a5b4fc; color: #4f46e5; }
+.hot-tag.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
+/* ====================== 主体两栏 ====================== */
+.ref-body {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ====================== 段落区 ====================== */
+.ref-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+}
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+.section-count {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #9ca3af;
+}
+.empty-state svg { width: 56px; height: 56px; margin-bottom: 0.75rem; }
+.empty-state p { font-size: 0.875rem; margin: 0; }
+
+/* 段落卡片列表 */
+.para-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.para-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.para-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.08);
+}
+
+/* 卡片头部 */
+.para-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.para-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.book-title {
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: #111827;
+}
+.book-author {
+  font-size: 0.825rem;
+  color: #6b7280;
+}
+.book-genre {
+  font-size: 0.775rem;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+}
+
+/* 场景类型徽章 */
+.scene-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.6rem;
+  border-radius: 20px;
+}
+.scene-开篇  { background: #eef2ff; color: #4f46e5; }
+.scene-转折  { background: #eff6ff; color: #2563eb; }
+.scene-高潮  { background: #fff7ed; color: #ea580c; }
+.scene-战斗  { background: #fef2f2; color: #dc2626; }
+.scene-感情戏 { background: #fdf2f8; color: #db2777; }
+.scene-氛围描写 { background: #f0fdfa; color: #0d9488; }
+.scene-智斗对话 { background: #f0fdf4; color: #16a34a; }
+
+/* 操作按钮 */
+.para-actions { display: flex; gap: 0.375rem; flex-shrink: 0; }
+.action-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.action-btn svg { width: 16px; height: 16px; }
+.action-btn:hover { background: #f3f4f6; color: #374151; }
+.action-btn.favorited { color: #ef4444; }
+.action-btn.favorited:hover { background: #fef2f2; }
+
+/* 段落引用内容 */
+.para-content {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  background: #f9fafb;
+  border-left: 3px solid #a5b4fc;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: #374151;
+  font-style: normal;
+}
+
+/* 卡片底部 */
+.para-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.para-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.content-tag {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.18rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+/* 统计 */
+.para-stats { display: flex; gap: 0.875rem; }
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+.stat-item svg { width: 13px; height: 13px; }
+
+/* ====================== 右侧边栏 ====================== */
+.ref-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.sidebar-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.sidebar-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.925rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+.sidebar-card-title svg { width: 16px; height: 16px; color: #6366f1; }
+
+/* 统计行 */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-label { font-size: 0.85rem; color: #6b7280; }
+.stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+.stat-value.highlight { color: #4f46e5; }
+
+/* 使用技巧 */
+.tips-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tips-list li {
+  font-size: 0.825rem;
+  color: #4f46e5;
+  line-height: 1.55;
+  cursor: default;
+}
+
+/* AI 建议 */
+.sidebar-ai { background: #fafaff; }
+.ai-desc {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #6b7280;
+  line-height: 1.6;
+}
+.ai-recommend-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+}
+.ai-recommend-btn svg { width: 15px; height: 15px; }
+.ai-recommend-btn:hover { background: #1f2937; }
+.ai-recommend-btn:active { transform: scale(0.98); }
+
+/* ====================== 响应式 ====================== */
+@media (max-width: 900px) {
+  .ref-body {
+    grid-template-columns: 1fr;
+  }
+  .ref-sidebar {
+    position: static;
+  }
+  .ref-lib {
+    padding: 1rem;
+  }
+}
+
+/* ====================== 新增段落按钮 ====================== */
+.add-para-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 1rem;
+  height: 100%;
+  min-height: 42px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  white-space: nowrap;
+}
+.add-para-btn svg { width: 15px; height: 15px; }
+.add-para-btn:hover { background: #4338ca; }
+.add-para-btn:active { transform: scale(0.97); }
+
+/* ====================== 删除按钮 ====================== */
+.action-btn-danger { color: #9ca3af; }
+.action-btn-danger:hover { background: #fef2f2; color: #ef4444; }
+
+/* ====================== 新增段落弹窗 ====================== */
+.add-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.add-modal-panel {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.add-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+.add-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+}
+.add-modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.add-modal-close svg { width: 18px; height: 18px; }
+.add-modal-close:hover { background: #f3f4f6; color: #374151; }
+
+.add-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #374151;
+}
+.required { color: #ef4444; }
+
+.form-input {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-input::placeholder { color: #9ca3af; }
+.form-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.form-textarea {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.form-textarea::placeholder { color: #9ca3af; }
+.form-textarea:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* 场景类型选择器 */
+.scene-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.scene-pick-btn {
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.scene-pick-btn:hover { background: #eef2ff; border-color: #a5b4fc; color: #4f46e5; }
+.scene-pick-btn.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
+/* 弹窗底部 */
+.add-modal-footer {
+  display: flex;
+  gap: 0.625rem;
+  justify-content: flex-end;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.modal-btn {
+  padding: 0.55rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, transform 0.12s;
+  line-height: 1.4;
+}
+.modal-btn:active { transform: scale(0.97); }
+
+.modal-btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+.modal-btn-cancel:hover { background: #e5e7eb; }
+
+.modal-btn-submit {
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+.modal-btn-submit:hover { background: #4338ca; }
+.modal-btn-submit:disabled {
+  background: #c7d2fe;
+  box-shadow: none;
+  cursor: not-allowed;
+}

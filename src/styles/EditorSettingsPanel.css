@@ -1,0 +1,239 @@
+/* ======================================================
+   EditorSettingsPanel.css — 编辑器设置浮动面板
+   ====================================================== */
+
+.esp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: transparent;
+}
+
+.esp-panel {
+  position: fixed;
+  top: 54px;
+  right: 56px;
+  width: 320px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  z-index: 3001;
+}
+
+/* ── 入场动画 ── */
+.settings-panel-enter-active,
+.settings-panel-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.settings-panel-enter-from,
+.settings-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
+}
+
+/* ── 头部 ── */
+.esp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.125rem;
+}
+
+.esp-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #111827;
+}
+.esp-title svg { width: 15px; height: 15px; color: #6b7280; }
+
+.esp-close {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.esp-close svg { width: 14px; height: 14px; }
+.esp-close:hover { background: #f3f4f6; color: #374151; }
+
+/* ── Section ── */
+.esp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.esp-section-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.esp-label {
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.01em;
+}
+
+.esp-hint {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* ── 选项按钮组 ── */
+.esp-btn-group {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.esp-opt-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0.5rem 0.25rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: inherit;
+  min-height: 52px;
+}
+.esp-opt-btn:hover {
+  border-color: #c7d2fe;
+  background: #f5f5ff;
+}
+.esp-opt-btn.active {
+  border-color: #4f46e5;
+  background: #eef2ff;
+  color: #4338ca;
+}
+.esp-opt-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.esp-opt-sub {
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* ── 宽度预览条 ── */
+.esp-width-preview {
+  height: 3px;
+  background: currentColor;
+  border-radius: 2px;
+  min-width: 12px;
+}
+
+/* ── 主题组 ── */
+.esp-theme-group {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.esp-theme-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0.5rem 0.25rem;
+  border: 1.5px solid;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.esp-theme-btn.active {
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.2);
+}
+
+.esp-theme-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.1);
+  flex-shrink: 0;
+}
+
+/* ── 分隔线 ── */
+.esp-divider {
+  height: 1px;
+  background: #f3f4f6;
+  margin: -0.125rem 0;
+}
+
+/* ── 自动保存开关 ── */
+.esp-toggle {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #e5e7eb;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.esp-toggle.on {
+  background: #4f46e5;
+}
+.esp-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.2s;
+}
+.esp-toggle.on .esp-toggle-thumb {
+  left: calc(100% - 19px);
+}
+
+/* ── 重置按钮 ── */
+.esp-reset {
+  width: 100%;
+  padding: 0.45rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.775rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+  margin-top: 0.125rem;
+}
+.esp-reset:hover {
+  background: #f9fafb;
+  color: #374151;
+}

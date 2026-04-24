@@ -1,0 +1,161 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #fafafa;
+}
+
+/* ---- Top bar ---- */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e8e8ed;
+  flex-shrink: 0;
+  position: relative;
+}
+.bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 1;
+}
+.bar-logo-icon {
+  width: 24px;
+  height: 24px;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+.bar-brand {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+.bar-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 52px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.bar-tab {
+  height: 52px;
+  padding: 0 0.85rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: #6b7280;
+  position: relative;
+  transition: color 0.15s;
+}
+.bar-tab:hover { color: #374151; }
+.bar-tab.active { color: #4f46e5; }
+.bar-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0.5rem;
+  right: 0.5rem;
+  height: 2px;
+  background: #4f46e5;
+  border-radius: 2px 2px 0 0;
+}
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  justify-content: flex-end;
+}
+.bar-user {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+.bar-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+  font-size: 0.775rem;
+  font-weight: 500;
+  color: #9ca3af;
+  transition: all 0.15s;
+}
+.bar-logout:hover {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+/* ---- Main content ---- */
+.app-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- 页面切换动画（方向感知：向右导航 / 向左导航） ---- */
+
+/* 向右：新页从右侧滑入，旧页向左滑出 */
+.page-right-enter-active,
+.page-right-leave-active {
+  transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+.page-right-enter-from {
+  opacity: 0;
+  transform: translateX(36px) scale(0.985);
+}
+.page-right-leave-to {
+  opacity: 0;
+  transform: translateX(-24px) scale(0.985);
+}
+.page-right-enter-to,
+.page-right-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+/* 向左：新页从左侧滑入，旧页向右滑出 */
+.page-left-enter-active,
+.page-left-leave-active {
+  transition: opacity 0.22s ease, transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+.page-left-enter-from {
+  opacity: 0;
+  transform: translateX(-36px) scale(0.985);
+}
+.page-left-leave-to {
+  opacity: 0;
+  transform: translateX(24px) scale(0.985);
+}
+.page-left-enter-to,
+.page-left-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+/* 顶栏 active 下划线滑动 */
+.bar-tab.active::after {
+  transition: left 0.2s cubic-bezier(0.16, 1, 0.3, 1), right 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
