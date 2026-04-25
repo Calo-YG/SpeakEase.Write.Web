@@ -283,6 +283,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { referenceApi, type ReferencePassageItem as ApiPassageItem } from '@/lib/api'
 import { useNotification } from '@/composables/useNotification'
 import { useConfirm } from '@/composables/useConfirm'
 import '../styles/ReferenceLibraryView.css'
@@ -305,6 +306,22 @@ interface Paragraph {
   favorited: boolean
 }
 
+function apiToParagraph(api: ApiPassageItem): Paragraph {
+  return {
+    id: api.id,
+    bookTitle: api.referenceWorkTitle,
+    author: api.referenceWorkAuthor,
+    genre: api.referenceWorkGenre,
+    sceneType: api.passageType,
+    content: api.content,
+    tags: api.highlightTags,
+    reads: api.recommendationCount,
+    stars: api.favoriteCount,
+    comments: 0,
+    favorited: api.favoritedByMe,
+  }
+}
+
 // ==================== 静态数据 ====================
 const sceneTypes = ['全部', '开篇', '转折', '高潮', '战斗', '感情戏', '氛围描写', '智斗对话']
 const editableSceneTypes = sceneTypes.filter(s => s !== '全部')
@@ -312,7 +329,7 @@ const hotTags = ['热血', '金句', '世界观', '励志', '悬疑', '甜宠', 
 
 let nextId = 100
 
-const paragraphs = ref<Paragraph[]>([
+const MOCK_PARAGRAPHS: Paragraph[] = [
   {
     id: '1',
     bookTitle: '斗破苍穹',
@@ -393,7 +410,24 @@ const paragraphs = ref<Paragraph[]>([
     tags: ['世界观', '悬疑', '科幻', '金句'],
     reads: 940000, stars: 710000, comments: 36000, favorited: false,
   },
-])
+]
+
+const paragraphs = ref<Paragraph[]>([])
+
+async function loadPassages() {
+  try {
+    const result = await referenceApi.queryPassages({
+      keyword: keyword.value.trim() || undefined,
+      passageType: (selectedScene.value && selectedScene.value !== '全部') ? selectedScene.value : undefined,
+      tag: activeHotTag.value || undefined,
+    })
+    if (result.succeeded ?? result.successed) {
+      paragraphs.value = (result.data?.items ?? []).map(apiToParagraph)
+      return
+    }
+  } catch { /* fallback */ }
+  paragraphs.value = MOCK_PARAGRAPHS
+}
 
 // ==================== 状态 ====================
 const keyword = ref('')
@@ -439,13 +473,23 @@ function formatCount(n: number): string {
 function selectScene(scene: string) {
   selectedScene.value = scene === '全部' ? '' : scene
   showFilter.value = false
+  loadPassages()
 }
 
 function toggleHotTag(tag: string) {
   activeHotTag.value = activeHotTag.value === tag ? '' : tag
+  loadPassages()
 }
 
-function toggleFavorite(p: Paragraph) {
+async function toggleFavorite(p: Paragraph) {
+  try {
+    const result = await referenceApi.toggleFavorite(p.id)
+    if (result.succeeded ?? result.successed) {
+      p.favorited = result.data ?? !p.favorited
+      notify.success(p.favorited ? `已收藏「${p.bookTitle}」片段` : '已取消收藏')
+      return
+    }
+  } catch { /* fallback */ }
   p.favorited = !p.favorited
   notify.success(p.favorited ? `已收藏「${p.bookTitle}」片段` : '已取消收藏')
 }
@@ -496,16 +540,31 @@ function closeAddModal() {
   form.tagsStr = ''
 }
 
-function submitAdd() {
+async function submitAdd() {
   if (!isFormValid.value) return
   const tags = form.tagsStr
     .split(/[,，]/)
     .map(t => t.trim())
     .filter(Boolean)
-  // 自动带上场景类型作为标签
   if (form.sceneType && !tags.includes(form.sceneType)) {
     tags.unshift(form.sceneType)
   }
+  try {
+    const result = await referenceApi.addPassage({
+      bookTitle: form.bookTitle.trim(),
+      author: form.author.trim(),
+      genre: form.genre.trim() || undefined,
+      passageType: form.sceneType,
+      content: form.content.trim(),
+      highlightTags: tags,
+    })
+    if (result.succeeded ?? result.successed) {
+      notify.success(`已添加「${form.bookTitle.trim()}」参考段落`)
+      closeAddModal()
+      loadPassages()
+      return
+    }
+  } catch { /* fallback */ }
   const newPara: Paragraph = {
     id: String(nextId++),
     bookTitle: form.bookTitle.trim(),
@@ -534,6 +593,14 @@ async function handleDelete(p: Paragraph) {
     type: 'danger',
   })
   if (!ok) return
+  try {
+    const result = await referenceApi.deletePassage(p.id)
+    if (result.succeeded ?? result.successed) {
+      notify.success('已删除参考段落')
+      loadPassages()
+      return
+    }
+  } catch { /* fallback */ }
   const idx = paragraphs.value.findIndex(x => x.id === p.id)
   if (idx !== -1) {
     paragraphs.value.splice(idx, 1)
@@ -543,7 +610,9 @@ async function handleDelete(p: Paragraph) {
 
 function onSearchInput() {
   if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {}, 300)
+  searchTimer = setTimeout(() => {
+    loadPassages()
+  }, 400)
 }
 
 function handleClickOutside(e: MouseEvent) {
@@ -552,6 +621,9 @@ function handleClickOutside(e: MouseEvent) {
   }
 }
 
-onMounted(() => document.addEventListener('click', handleClickOutside))
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+  loadPassages()
+})
 onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 </script>

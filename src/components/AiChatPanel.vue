@@ -109,14 +109,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onUnmounted } from 'vue'
 import type { WorkItem } from '@/lib/api'
+import { agentStreamChat, type LLMChatMessage } from '@/lib/api'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
 import '../styles/AiChatPanel.css'
 
-defineProps<{
+const props = defineProps<{
   work?: WorkItem | null
   chapter?: ChapterItem | null
+  chapterContent?: string
 }>()
 
 defineEmits<{ close: [] }>()
@@ -144,6 +146,7 @@ const inputText = ref('')
 const isTyping = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+let abortController: AbortController | null = null
 
 // ── 拖拽调宽 ──
 const MIN_WIDTH = 240
@@ -155,7 +158,6 @@ function onResizeStart(e: MouseEvent) {
   const startWidth = panelWidth.value
 
   function onMove(ev: MouseEvent) {
-    // 向左拖拽（delta 为负）→ 变宽；向右拖拽 → 变窄
     const delta = startX - ev.clientX
     panelWidth.value = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
   }
@@ -173,22 +175,36 @@ function onResizeStart(e: MouseEvent) {
   document.addEventListener('mouseup', onUp)
 }
 
-// Mock AI 回复库
-const mockReplies: Record<string, string> = {
-  续写: '根据当前章节的走向，我建议可以从以下几个角度续写：\n\n1. **冲突升级**：将觉醒石的反应描写得更加震撼，引发宗门长老的高度重视\n2. **内心独白**：通过林凡的视角展示他内心的惊喜与不安，增加人物深度\n3. **悬念设置**：可以暗示觉醒武魂的稀有性，为后续剧情埋下伏笔',
-  人物: '本章人物分析：\n\n• **林凡**（主角）：性格坚韧，承受他人偏见而未放弃，是典型的"逆袭型"主角设定\n• **宗门长老**：代表权威与评判，通过其反应侧面烘托林凡觉醒的非凡\n• **周围弟子**：以集体形象呈现，构成对林凡的"反衬"，增强戏剧效果',
-  情节: '从结构角度来看，本章情节较为流畅，但有以下优化空间：\n\n1. 觉醒前可以增加更多的铺垫细节，如林凡的心理活动或具体的修炼挫折\n2. "下一个，林凡！"这句话的出现节奏可以再缓一缓，增加期待感\n3. 建议在章末留下更明确的钩子，驱动读者阅读下一章',
-  冲突: '关于下一章冲突设计，这里有几个思路：\n\n**外部冲突**：觉醒结果引发同门嫉妒，可能遭遇暗算或挑战\n**内部冲突**：武魂觉醒后，林凡发现自己的能力远比想象中复杂，需要抉择\n**信息冲突**：某位长老知晓林凡武魂的真实价值却选择隐瞒，制造张力',
-  开头: '以下是几个改写方向：\n\n**原版感觉**：平铺直叙，适合建立基调\n\n**建议改写**：\n"觉醒石的裂纹，在林凡的掌心蔓延。"\n\n以结果开头，制造悬念，让读者立即想知道发生了什么——这是倒叙切入的经典技法。',
+// ── 构建系统提示（携带作品/章节上下文）──
+function buildSystemPrompt(): string {
+  const parts: string[] = [
+    '你是一位专业的AI写作助手，擅长中文网络小说创作，包括玄幻、仙侠、都市、科幻等多种题材。',
+  ]
+  if (props.work) {
+    parts.push(`\n当前用户正在创作的作品：《${props.work.title}》，题材：${props.work.genre || '未设定'}。`)
+  }
+  if (props.chapter) {
+    parts.push(`当前章节：${props.chapter.title}`)
+  }
+  if (props.chapterContent) {
+    // 只取前1500字，避免超出上下文限制
+    const plainText = props.chapterContent.replace(/<[^>]+>/g, '').slice(0, 1500)
+    if (plainText.trim()) {
+      parts.push(`\n当前章节内容（节选）：\n${plainText}`)
+    }
+  }
+  parts.push('\n请基于以上创作背景，用简洁、专业的方式帮助用户。给出具体的写作建议时，风格需与作品保持一致。')
+  return parts.join('')
 }
 
-function getMockReply(input: string): string {
-  if (input.includes('续写') || input.includes('建议')) return mockReplies['续写']
-  if (input.includes('人物') || input.includes('人') || input.includes('角色')) return mockReplies['人物']
-  if (input.includes('情节') || input.includes('优化')) return mockReplies['情节']
-  if (input.includes('冲突')) return mockReplies['冲突']
-  if (input.includes('开头') || input.includes('改写')) return mockReplies['开头']
-  return `好的，关于你的问题「${input.slice(0, 20)}${input.length > 20 ? '…' : ''}」，作为 AI 写作助手，我来帮你分析：\n\n当前章节的节奏整体流畅，情感张力足够。你可以考虑在关键转折点加入更多感官描写，让读者更有代入感。如果需要具体建议，可以把章节内容粘贴到这里，我来帮你逐段优化。`
+// ── 构建对话历史供 Agent 使用 ──
+function buildConversationHistory(): LLMChatMessage[] {
+  return messages.value
+    .filter(m => !m.typing && m.content)
+    .map(m => ({
+      role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+      content: m.content,
+    }))
 }
 
 function nowTime(): string {
@@ -197,6 +213,10 @@ function nowTime(): string {
 
 async function sendMessage(text: string) {
   if (!text.trim() || isTyping.value) return
+
+  // 中断上一次请求
+  abortController?.abort()
+  abortController = new AbortController()
 
   // 添加用户消息
   messages.value.push({
@@ -223,25 +243,61 @@ async function sendMessage(text: string) {
   await nextTick()
   scrollToBottom()
 
-  // 模拟 AI 思考延迟（800ms ～ 1400ms）
-  const delay = 800 + Math.random() * 600
-  await new Promise(r => setTimeout(r, delay))
+  let accumulatedText = ''
 
-  // 替换打字占位为真实内容
-  const idx = messages.value.findIndex(m => m.id === typingId)
-  if (idx !== -1) {
-    messages.value[idx] = {
-      id: typingId,
-      role: 'ai',
-      content: getMockReply(text),
-      time: nowTime(),
-      typing: false,
-    }
-  }
-  isTyping.value = false
+  const history = buildConversationHistory()
+  // 去掉最后一条（刚加的 user 消息，因为当前输入已单独传入）
+  const contextMessages = history.slice(0, -1)
 
-  await nextTick()
-  scrollToBottom()
+  const systemPrompt = buildSystemPrompt()
+
+  await agentStreamChat(
+    {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...contextMessages,
+        { role: 'user', content: text.trim() },
+      ],
+      skillName: 'writer',
+      temperature: 0.8,
+    },
+    {
+      onChunk(chunk) {
+        accumulatedText += chunk
+        const idx = messages.value.findIndex(m => m.id === typingId)
+        if (idx !== -1) {
+          messages.value[idx] = {
+            ...messages.value[idx],
+            content: accumulatedText,
+            typing: false,
+          }
+        }
+        scrollToBottom()
+      },
+      onDone() {
+        isTyping.value = false
+        // 确保最终 typing 状态已清除
+        const idx = messages.value.findIndex(m => m.id === typingId)
+        if (idx !== -1 && messages.value[idx].typing) {
+          messages.value[idx] = { ...messages.value[idx], typing: false }
+        }
+      },
+      onError(code, message) {
+        isTyping.value = false
+        const idx = messages.value.findIndex(m => m.id === typingId)
+        if (idx !== -1) {
+          messages.value[idx] = {
+            ...messages.value[idx],
+            content: code === 'auth_expired'
+              ? '认证已过期，请重新登录。'
+              : `AI 回复失败：${message || '请检查模型配置'}`,
+            typing: false,
+          }
+        }
+      },
+    },
+    abortController.signal,
+  )
 }
 
 async function handleSend() {
@@ -257,9 +313,11 @@ function sendQuick(text: string) {
 }
 
 function scrollToBottom() {
-  if (messagesRef.value) {
-    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-  }
+  nextTick(() => {
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
 }
 
 function autoResize(e: Event) {
@@ -273,4 +331,8 @@ function resetTextareaHeight() {
     textareaRef.value.style.height = 'auto'
   }
 }
+
+onUnmounted(() => {
+  abortController?.abort()
+})
 </script>

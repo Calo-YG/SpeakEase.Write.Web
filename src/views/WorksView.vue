@@ -243,7 +243,29 @@ function handleNewWork() {
   showCreateModal.value = true
 }
 
-function handleWorkCreated(data: Partial<WorkItem>) {
+async function handleWorkCreated(data: Partial<WorkItem>) {
+  try {
+    const result = await workApi.create({
+      title: data.title ?? '',
+      genre: data.genre ?? '',
+      styleTags: data.styleTags ?? [],
+      description: data.description ?? '',
+      coverUrl: data.coverUrl,
+    })
+    if (result.succeeded ?? result.successed) {
+      notify.success('作品创建成功')
+      loadWorks()
+    } else {
+      notify.error(result.message || '创建失败')
+      fallbackCreateWork(data)
+    }
+  } catch {
+    fallbackCreateWork(data)
+  }
+  showCreateModal.value = false
+}
+
+function fallbackCreateWork(data: Partial<WorkItem>) {
   const newWork: WorkItem = {
     id: `mock-${Date.now()}`,
     title: data.title ?? '',
@@ -259,7 +281,6 @@ function handleWorkCreated(data: Partial<WorkItem>) {
   }
   works.value.unshift(newWork)
   totalCount.value += 1
-  showCreateModal.value = false
 }
 
 function handleWrite(w: WorkItem) {
@@ -267,6 +288,7 @@ function handleWrite(w: WorkItem) {
 }
 
 function handleEdit(w: WorkItem) {
+  // TODO: 打开作品设置弹窗，目前先调用 update 接口占位
   notify.info(`编辑「${w.title}」设置`)
 }
 

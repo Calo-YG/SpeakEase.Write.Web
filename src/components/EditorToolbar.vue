@@ -109,12 +109,18 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { streamChat } from '@/lib/api'
 import '../styles/EditorToolbar.css'
 
 const props = defineProps<{
   showCharacters: boolean
   showOutline: boolean
   showAiChat: boolean
+  // 由 WorkEditorView 传入的当前章节上下文
+  chapterTitle?: string
+  chapterContent?: string
+  workTitle?: string
+  workGenre?: string
 }>()
 
 const emit = defineEmits<{
@@ -137,23 +143,126 @@ const modeLabel = computed(() => {
   return map[currentMode.value]
 })
 
+// ── 工具函数：将 HTML 转为纯文本用于 AI Prompt ──
+function htmlToText(html: string): string {
+  if (!html) return ''
+  return html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+}
+
 // ── AI 续写 ──
 const aiContinueLoading = ref(false)
+let continueAbort: AbortController | null = null
+
 async function handleAiContinue() {
+  if (aiContinueLoading.value) {
+    // 再次点击取消
+    continueAbort?.abort()
+    aiContinueLoading.value = false
+    return
+  }
+
+  const plainContent = htmlToText(props.chapterContent ?? '').slice(-800) // 取最后800字作为上下文
+  if (!plainContent) {
+    // 章节为空时，给一个基于标题的提示
+    const titleHint = props.chapterTitle ? `章节：${props.chapterTitle}` : '新章节'
+    emit('ai-continue', `\n\n（AI 续写：请先输入一些内容，AI 将基于你的文字风格进行续写）`)
+    return
+  }
+
   aiContinueLoading.value = true
-  await new Promise(r => setTimeout(r, 1200))
-  const mockText = '\n\n觉醒石表面泛起一层淡淡的白光，随即迅速扩散，将林凡的手掌完全笼罩。台下的窃窃私语骤然停止，所有人都屏住了呼吸。'
-  emit('ai-continue', mockText)
-  aiContinueLoading.value = false
+  continueAbort = new AbortController()
+
+  const workInfo = props.workTitle
+    ? `作品《${props.workTitle}》${props.workGenre ? `，题材：${props.workGenre}` : ''}`
+    : ''
+  const chapterInfo = props.chapterTitle ? `，章节：${props.chapterTitle}` : ''
+
+  const systemPrompt = `你是一位专业的中文小说写手${workInfo ? `，正在创作${workInfo}${chapterInfo}` : ''}。请保持原文的写作风格、人物性格和叙事节奏，用第三人称继续写作，不要重复上文内容，不要加标题或说明，直接输出续写正文。续写长度约200-400字。`
+
+  let result = ''
+
+  await streamChat(
+    {
+      systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: `请根据以下已有内容，续写下一段：\n\n${plainContent}`,
+        },
+      ],
+      temperature: 0.85,
+      skillName: 'writer',
+    },
+    {
+      onChunk(chunk) {
+        result += chunk
+      },
+      onDone() {
+        aiContinueLoading.value = false
+        if (result.trim()) {
+          emit('ai-continue', result)
+        }
+      },
+      onError(_code, message) {
+        aiContinueLoading.value = false
+        emit('ai-continue', `\n\n（AI 续写失败：${message || '请检查模型配置'}）`)
+      },
+    },
+    continueAbort.signal,
+  )
 }
 
 // ── AI 写本章 ──
 const aiWriteLoading = ref(false)
+let writeAbort: AbortController | null = null
+
 async function handleAiWrite() {
+  if (aiWriteLoading.value) {
+    writeAbort?.abort()
+    aiWriteLoading.value = false
+    return
+  }
+
   aiWriteLoading.value = true
-  await new Promise(r => setTimeout(r, 1800))
-  const mockText = '\n\n白光越来越盛，光柱直冲云霄。林凡感到一股磅礴的力量从掌心涌入，顺着经脉蔓延至全身每一个角落。\n\n"这……这是什么武魂？"\n\n林家族长站了起来，声音颤抖，眼中写满了不可置信。'
-  emit('ai-write', mockText)
-  aiWriteLoading.value = false
+  writeAbort = new AbortController()
+
+  const workInfo = props.workTitle
+    ? `作品《${props.workTitle}》${props.workGenre ? `，题材：${props.workGenre}` : ''}`
+    : '网络小说'
+  const chapterName = props.chapterTitle || '本章'
+
+  const systemPrompt = `你是一位专业的中文小说写手，正在创作${workInfo}。请直接输出章节正文，不要加章节标题，不要加说明或解释，段落之间用空行分隔。写作风格应符合该题材特点，人物形象鲜明，情节紧凑，约500-800字。`
+
+  let result = ''
+
+  await streamChat(
+    {
+      systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: `请帮我写「${chapterName}」的内容。${props.chapterContent ? `\n\n本章目前已有内容供参考：\n${htmlToText(props.chapterContent).slice(0, 300)}` : ''}`,
+        },
+      ],
+      temperature: 0.9,
+      skillName: 'writer',
+    },
+    {
+      onChunk(chunk) {
+        result += chunk
+      },
+      onDone() {
+        aiWriteLoading.value = false
+        if (result.trim()) {
+          emit('ai-write', result)
+        }
+      },
+      onError(_code, message) {
+        aiWriteLoading.value = false
+        emit('ai-write', `（AI 写本章失败：${message || '请检查模型配置'}）`)
+      },
+    },
+    writeAbort.signal,
+  )
 }
 </script>

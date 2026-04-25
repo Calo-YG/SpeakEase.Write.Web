@@ -163,6 +163,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { dashboardApi, tagApi, referenceApi, type TagItem as ApiTagItem, type ReferencePassageItem as ApiPassageItem } from '@/lib/api'
 import { useNotification } from '@/composables/useNotification'
 import '../styles/DashboardView.css'
 
@@ -215,15 +216,55 @@ function tickTypewriter() {
   }
 }
 
-// ==================== Stats (mock) ====================
+// ==================== Stats ====================
 const stats = ref({ words: 42800, works: 3, days: 17, aiCalls: 56 })
 
-// ==================== Recent works (mock) ====================
-const recentWorks = ref([
-  { id: 1, title: '星尘编年史', genre: '科幻', words: 28600, progress: 62, updatedAt: '2小时前', color: '#8b5cf6' },
-  { id: 2, title: '雾都迷踪', genre: '悬疑', words: 9200, progress: 28, updatedAt: '昨天', color: '#3b82f6' },
-  { id: 3, title: '花间辞', genre: '古风', words: 5000, progress: 15, updatedAt: '3天前', color: '#f59e0b' },
-])
+async function loadStats() {
+  try {
+    const result = await dashboardApi.getStats()
+    if (result.succeeded ?? result.successed) {
+      const d = result.data
+      stats.value = { words: d.totalWords, works: d.workCount, days: d.creationDays, aiCalls: d.aiCallCount }
+    }
+  } catch { /* fallback mock */ }
+}
+
+// ==================== Recent works ====================
+const MOCK_RECENT = [
+  { id: '1', title: '星尘编年史', genre: '科幻', words: 28600, progress: 62, updatedAt: '2小时前', color: '#8b5cf6' },
+  { id: '2', title: '雾都迷踪', genre: '悬疑', words: 9200, progress: 28, updatedAt: '昨天', color: '#3b82f6' },
+  { id: '3', title: '花间辞', genre: '古风', words: 5000, progress: 15, updatedAt: '3天前', color: '#f59e0b' },
+]
+const recentWorks = ref([...MOCK_RECENT])
+
+async function loadRecentWorks() {
+  try {
+    const result = await dashboardApi.getRecentWorks(5)
+    if (result.succeeded ?? result.successed) {
+      const genreColors: Record<string, string> = { '科幻': '#8b5cf6', '悬疑': '#3b82f6', '古风': '#f59e0b', '玄幻': '#6366f1', '都市': '#3b82f6', '末世': '#ef4444' }
+      recentWorks.value = (result.data ?? []).map(w => ({
+        id: w.id,
+        title: w.title,
+        genre: w.genre,
+        words: w.totalWordCount,
+        progress: Math.min(100, Math.round(w.totalWordCount / 500)),
+        updatedAt: formatRelativeTime(w.updatedAt),
+        color: genreColors[w.genre] ?? '#64748b',
+      }))
+    }
+  } catch { /* fallback mock */ }
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins} 分钟前`
+  const hours = Math.floor(diff / 3600000)
+  if (hours < 24) return `${hours} 小时前`
+  const days = Math.floor(diff / 86400000)
+  if (days < 30) return `${days} 天前`
+  return new Date(iso).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })
+}
 
 // ==================== Daily prompts ====================
 const prompts = [
@@ -255,7 +296,7 @@ const tips = [
 const writingTip = ref(tips[Math.floor(Math.random() * tips.length)])
 
 // ==================== Featured tags (热门标签) ====================
-const featuredTags = ref([
+const MOCK_TAGS = [
   { id: '1', name: '开篇',   color: '#6366f1', usageCount: 128 },
   { id: '2', name: '热血',   color: '#ef4444', usageCount: 203 },
   { id: '3', name: '金句',   color: '#eab308', usageCount: 156 },
@@ -271,29 +312,39 @@ const featuredTags = ref([
   { id: '13', name: '智斗',  color: '#22c55e', usageCount: 45  },
   { id: '14', name: '搞笑',  color: '#22c55e', usageCount: 37  },
   { id: '15', name: '虐心',  color: '#64748b', usageCount: 41  },
-])
+]
+const featuredTags = ref([...MOCK_TAGS])
+
+async function loadHotTags() {
+  try {
+    const result = await tagApi.getHotTags(15)
+    if (result.succeeded ?? result.successed) {
+      featuredTags.value = (result.data ?? []).map(t => ({ id: t.id, name: t.name, color: t.color, usageCount: t.usageCount }))
+    }
+  } catch { /* fallback mock */ }
+}
 
 // ==================== Featured refs (参考库精选) ====================
-const featuredRefs = ref([
-  {
-    id: 'r1',
-    bookTitle: '诡秘之主',
-    sceneType: '氛围描写',
-    content: '灰蒙蒙的天空下，蒸汽与雾气交织，煤气路灯散发着昏黄的光芒。街道两旁的建筑高耸而阴森，仿佛一只只沉默的巨兽，注视着来来往往的行人。',
-  },
-  {
-    id: 'r2',
-    bookTitle: '庆余年',
-    sceneType: '智斗对话',
-    content: '范闲微微一笑，看着对面那双深邃的眼睛，心中已然将整个棋局算清。他缓缓开口道："陛下所虑，无非三点。臣已一一料定，请陛下明鉴。"',
-  },
-  {
-    id: 'r3',
-    bookTitle: '遮天',
-    sceneType: '感情戏',
-    content: '她站在落日的余晖中，笑容如同春日里最温柔的风，让他恍惚觉得，走过漫长的岁月与黑暗，不过是为了此刻，站在她的身旁。',
-  },
-])
+const MOCK_REFS = [
+  { id: 'r1', bookTitle: '诡秘之主', sceneType: '氛围描写', content: '灰蒙蒙的天空下，蒸汽与雾气交织，煤气路灯散发着昏黄的光芒。街道两旁的建筑高耸而阴森，仿佛一只只沉默的巨兽，注视着来来往往的行人。' },
+  { id: 'r2', bookTitle: '庆余年', sceneType: '智斗对话', content: '范闲微微一笑，看着对面那双深邃的眼睛，心中已然将整个棋局算清。他缓缓开口道："陛下所虑，无非三点。臣已一一料定，请陛下明鉴。"' },
+  { id: 'r3', bookTitle: '遮天', sceneType: '感情戏', content: '她站在落日的余晖中，笑容如同春日里最温柔的风，让他恍惚觉得，走过漫长的岁月与黑暗，不过是为了此刻，站在她的身旁。' },
+]
+const featuredRefs = ref([...MOCK_REFS])
+
+async function loadFeaturedRefs() {
+  try {
+    const result = await referenceApi.queryPassages({ pageSize: 3 })
+    if (result.succeeded ?? result.successed) {
+      featuredRefs.value = (result.data?.items ?? []).map(p => ({
+        id: p.id,
+        bookTitle: p.referenceWorkTitle,
+        sceneType: p.passageType,
+        content: p.content,
+      }))
+    }
+  } catch { /* fallback mock */ }
+}
 
 async function copyRef(content: string) {
   try {
@@ -305,7 +356,13 @@ async function copyRef(content: string) {
 }
 
 // ==================== Lifecycle ====================
-onMounted(() => { tickTypewriter() })
+onMounted(() => {
+  tickTypewriter()
+  loadStats()
+  loadRecentWorks()
+  loadHotTags()
+  loadFeaturedRefs()
+})
 onUnmounted(() => { if (twTimer) clearTimeout(twTimer) })
 </script>
 

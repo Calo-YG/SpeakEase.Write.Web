@@ -32,6 +32,10 @@
           :show-characters="showCharacters"
           :show-outline="showOutline"
           :show-ai-chat="showAiChat"
+          :work-title="work?.title"
+          :work-genre="work?.genre"
+          :chapter-title="activeChapter?.title"
+          :chapter-content="chapterContents[activeChapterId] ?? ''"
           @ai-continue="handleAiContinue"
           @ai-write="handleAiWrite"
           @polish="handlePolish"
@@ -97,6 +101,7 @@
           v-if="showAiChat"
           :work="work"
           :chapter="activeChapter"
+          :chapter-content="chapterContents[activeChapterId] ?? ''"
           @close="showAiChat = false"
         />
       </Transition>
@@ -149,6 +154,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import type { WorkItem } from '@/lib/api'
+import { chapterApi, type ChapterItem as ApiChapterItem, type ChapterDetail } from '@/lib/api'
 import { useNotification } from '@/composables/useNotification'
 import EditorTopBar from '@/components/EditorTopBar.vue'
 import ChapterSidebar from '@/components/ChapterSidebar.vue'
@@ -167,28 +173,83 @@ defineEmits<{ back: [] }>()
 const notify = useNotification()
 
 // ==================== 章节数据 ====================
-const chapters = ref<ChapterItem[]>([
+const MOCK_CHAPTERS: ChapterItem[] = [
   { id: 'ch1', title: '第一章：觉醒', wordCount: 3200, badge: 'published' },
   { id: 'ch2', title: '第二章：测试', wordCount: 2800, badge: 'published' },
   { id: 'ch3', title: '第三章：冲突', wordCount: 3500, badge: 'published' },
   { id: 'ch4', title: '第四章：突破', wordCount: 0, badge: 'draft', note: '未开始' },
-])
+]
 
-// 每章内容（key = chapterId）
-const chapterContents: Record<string, string> = {
+const MOCK_CHAPTER_CONTENTS: Record<string, string> = {
   ch1: `<p>清晨的薄雾还未散去，林凡便已站在了宗门武场的中央。</p><p>今日是一年一度的武魂觉醒大典，对于每一名年满十八的弟子来说，这一天将决定他们未来数十年乃至一生的命运。</p><p>宗门长老高坐于台上，目光扫过台下密密麻麻的年轻面孔，最终落在了角落里那个略显孤单的少年身上。<span class="ai-text">那是林凡——林家旁系中最不起眼的一个。</span></p>`,
   ch2: `<p>觉醒仪式结束后的第三天，林凡被通知前往试炼塔接受初级测试。</p><p>试炼塔共有十二层，每一层都封印着对应等级的凶兽残影。对于刚刚觉醒的新生弟子而言，能够通过前三层，便已算得上中等资质。</p><p><span class="ai-text">然而林凡在第五层停下了脚步——不是因为力竭，而是因为他感受到了某种异样。</span></p>`,
   ch3: `<p>消息传开的速度比林凡预想的要快得多。</p><p>不到半天，整个宗门便已人尽皆知：那个一直被视为废物的林家旁系子弟，在试炼塔中打破了近二十年来的最高记录。</p><p>有人嫉妒，有人不信，也有人开始悄悄改变对他的看法。<span class="ai-text">而那些曾经嘲笑过他的人，此刻的神情却是格外的精彩。</span></p>`,
   ch4: `<p>林凡站在测试台前，深吸一口气。今天是他<span class="ai-text">十八岁</span>的生日，<span class="ai-text">也是觉醒武魂的日子</span>。</p><p>"下一个，林凡！"</p><p>听到自己的名字，林凡迈步走上前去。周围传来窃窃私语声，大多是嘲笑和不屑。作为林家旁系子弟，他的地位本就低下，更何况父母早逝，<span class="ai-text">更是无依无常</span>。</p><p>但林凡并不在意<span class="ai-text">这些。他伸出手，按在觉醒石上</span>。</p>`,
 }
 
-const activeChapterId = ref('ch4')
+const chapters = ref<ChapterItem[]>([])
+const chapterContents: Record<string, string> = {}
+const activeChapterId = ref('')
 const activeChapter = computed(() => chapters.value.find(c => c.id === activeChapterId.value) ?? null)
+
+function apiToChapterItem(api: ApiChapterItem): ChapterItem {
+  const badgeMap: Record<string, 'draft' | 'published' | 'review'> = { draft: 'draft', published: 'published', review: 'review' }
+  return {
+    id: api.id,
+    title: api.title,
+    wordCount: api.wordCount,
+    badge: badgeMap[api.status] ?? 'draft',
+    note: api.authorNotes || undefined,
+  }
+}
+
+async function loadChapters() {
+  const workId = props.work?.id
+  if (!workId) {
+    chapters.value = MOCK_CHAPTERS
+    Object.assign(chapterContents, MOCK_CHAPTER_CONTENTS)
+    activeChapterId.value = 'ch4'
+    nextTick(() => loadChapterContent(activeChapterId.value))
+    return
+  }
+  try {
+    const result = await chapterApi.list(workId)
+    if (result.succeeded ?? result.successed) {
+      chapters.value = (result.data ?? []).map(apiToChapterItem)
+      if (chapters.value.length > 0) {
+        activeChapterId.value = chapters.value[chapters.value.length - 1].id
+        nextTick(() => {
+          loadChapterContent(activeChapterId.value)
+          // 记录今日字数基准（第一次加载时存入 localStorage）
+          const today = new Date().toISOString().slice(0, 10)
+          const key = `daily_wc_${workId}_${today}`
+          if (!localStorage.getItem(key)) {
+            const totalWords = (result.data ?? []).reduce((sum, c) => sum + c.wordCount, 0)
+            localStorage.setItem(key, String(totalWords))
+          }
+        })
+      }
+      return
+    }
+  } catch { /* fallback */ }
+  chapters.value = MOCK_CHAPTERS
+  Object.assign(chapterContents, MOCK_CHAPTER_CONTENTS)
+  activeChapterId.value = 'ch4'
+  nextTick(() => loadChapterContent(activeChapterId.value))
+}
 
 // ==================== 编辑器 ====================
 const editorRef = ref<HTMLElement | null>(null)
 const titleRef = ref<HTMLElement | null>(null)
-const dailyWordCount = ref(1250)
+const dailyWordCount = computed(() => {
+  const workId = props.work?.id ?? 'mock'
+  const today = new Date().toISOString().slice(0, 10)
+  const key = `daily_wc_${workId}_${today}`
+  const baseline = parseInt(localStorage.getItem(key) ?? '0', 10)
+  // baseline = 今天开始时的字数，current - baseline = 今日增量
+  const current = currentWordCount.value
+  return Math.max(0, current - baseline)
+})
 
 const currentWordCount = computed(() => {
   const text = editorRef.value?.innerText ?? ''
@@ -239,10 +300,27 @@ function focusEditor() {
 }
 
 // ==================== 章节切换 ====================
-function handleSelectChapter(ch: ChapterItem) {
+async function handleSelectChapter(ch: ChapterItem) {
   // 保存当前章节
   chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
   activeChapterId.value = ch.id
+
+  // 如果本地缓存有内容则直接用，否则尝试从 API 加载
+  if (chapterContents[ch.id]) {
+    nextTick(() => loadChapterContent(ch.id))
+    return
+  }
+  const workId = props.work?.id
+  if (workId) {
+    try {
+      const result = await chapterApi.getDetail(workId, ch.id)
+      if (result.succeeded ?? result.successed) {
+        chapterContents[ch.id] = result.data?.content ?? ''
+        nextTick(() => loadChapterContent(ch.id))
+        return
+      }
+    } catch { /* fallback to empty */ }
+  }
   nextTick(() => loadChapterContent(ch.id))
 }
 
@@ -258,14 +336,25 @@ function openNewChapterModal() {
   nextTick(() => newChapterInputRef.value?.focus())
 }
 
-function confirmNewChapter() {
+async function confirmNewChapter() {
   const title = newChapterTitle.value.trim()
   if (!title) return
-  const id = `ch${Date.now()}`
-  chapters.value.push({ id, title, wordCount: 0, badge: 'draft', note: '未开始' })
-  chapterContents[id] = ''
+  const workId = props.work?.id
+  let newId = `ch${Date.now()}`
+
+  if (workId) {
+    try {
+      const result = await chapterApi.create(workId, { title, sequence: chapters.value.length + 1 })
+      if (result.succeeded ?? result.successed) {
+        newId = result.data?.id ?? newId
+      }
+    } catch { /* fallback to local id */ }
+  }
+
+  chapters.value.push({ id: newId, title, wordCount: 0, badge: 'draft', note: '未开始' })
+  chapterContents[newId] = ''
   showNewChapterModal.value = false
-  handleSelectChapter({ id, title })
+  handleSelectChapter({ id: newId, title })
   notify.success(`章节「${title}」已创建`)
 }
 
@@ -306,8 +395,17 @@ function handleInspire() {
 }
 
 // ==================== 保存 ====================
-function handleSave() {
+async function handleSave() {
   chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
+  const workId = props.work?.id
+  if (workId) {
+    try {
+      await chapterApi.update(workId, activeChapterId.value, {
+        title: chapters.value.find(c => c.id === activeChapterId.value)?.title,
+        content: chapterContents[activeChapterId.value],
+      })
+    } catch { /* fallback local-only */ }
+  }
   notify.success('已保存')
 }
 
@@ -374,14 +472,13 @@ watch(() => editorSettings.value.autoSave, (val) => {
   if (autoSaveTimer) clearInterval(autoSaveTimer)
   if (val) {
     autoSaveTimer = setInterval(() => {
-      chapterContents[activeChapterId.value] = editorRef.value?.innerHTML ?? ''
-      notify.success('已自动保存')
+      handleSave()
     }, 30000)
   }
 })
 
 onMounted(() => {
-  loadChapterContent(activeChapterId.value)
+  loadChapters()
   document.addEventListener('fullscreenchange', onFullscreenChange)
 })
 
@@ -391,6 +488,6 @@ onUnmounted(() => {
 })
 
 watch(() => props.work, () => {
-  // 作品切换时可重置
+  loadChapters()
 })
 </script>

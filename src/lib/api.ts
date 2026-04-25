@@ -176,6 +176,7 @@ export interface SaveProviderRequest {
   apiBaseUrl: string
   apiKey: string
   description: string
+  isActive?: boolean
 }
 
 export interface UserModelConfig {
@@ -215,6 +216,7 @@ export interface SaveUserModelConfigRequest {
   contextWindow?: number
   maxOutputTokens?: number
   supportsStreaming?: boolean
+  supportsToolCall?: boolean
   capabilityTags?: string[]
 }
 
@@ -639,6 +641,15 @@ export interface WorkCreateRequest {
   coverUrl?: string
 }
 
+export interface WorkUpdateRequest {
+  title?: string
+  genre?: string
+  styleTags?: string[]
+  description?: string
+  coverUrl?: string
+  status?: string
+}
+
 export const workApi = {
   query: (req: WorkQueryRequest) =>
     apiClient<ApiResult<PageResult<WorkItem>>>('/api/work/query', { method: 'POST', body: JSON.stringify(req) }),
@@ -646,6 +657,244 @@ export const workApi = {
     apiClient<ApiResult<WorkItem>>(`/api/work/${id}`),
   create: (req: WorkCreateRequest) =>
     apiClient<ApiResult<WorkItem>>('/api/work', { method: 'POST', body: JSON.stringify(req) }),
+  update: (id: string, req: WorkUpdateRequest) =>
+    apiClient<ApiResult<WorkItem>>(`/api/work/${id}`, { method: 'PUT', body: JSON.stringify(req) }),
   delete: (id: string) =>
     apiClient<ApiResult<null>>(`/api/work/${id}`, { method: 'DELETE' }),
+}
+
+// ==================== Chapter 类型 ====================
+
+export interface ChapterItem {
+  id: string
+  workId: string
+  title: string
+  sequence: number
+  wordCount: number
+  status: string       // draft | published | review
+  summary: string
+  authorNotes: string
+  lastContentSavedAt: string | null
+}
+
+export interface ChapterDetail extends ChapterItem {
+  content: string
+}
+
+export interface CreateChapterRequest {
+  title: string
+  sequence?: number
+}
+
+export interface UpdateChapterRequest {
+  title?: string
+  content?: string
+  status?: string
+  authorNotes?: string
+}
+
+export const chapterApi = {
+  list: (workId: string) =>
+    apiClient<ApiResult<ChapterItem[]>>(`/api/works/${workId}/chapters`),
+  getDetail: (workId: string, chapterId: string) =>
+    apiClient<ApiResult<ChapterDetail>>(`/api/works/${workId}/chapters/${chapterId}`),
+  create: (workId: string, req: CreateChapterRequest) =>
+    apiClient<ApiResult<ChapterDetail>>(`/api/works/${workId}/chapters`, { method: 'POST', body: JSON.stringify(req) }),
+  update: (workId: string, chapterId: string, req: UpdateChapterRequest) =>
+    apiClient<ApiResult<ChapterDetail>>(`/api/works/${workId}/chapters/${chapterId}`, { method: 'PUT', body: JSON.stringify(req) }),
+  delete: (workId: string, chapterId: string) =>
+    apiClient<ApiResult<null>>(`/api/works/${workId}/chapters/${chapterId}`, { method: 'DELETE' }),
+}
+
+// ==================== Character 类型 ====================
+
+export interface CharacterItem {
+  id: string
+  workId: string
+  name: string
+  alias: string
+  gender: string
+  ageDescription: string
+  identity: string
+  appearance: string
+  personality: string
+  backgroundStory: string
+  motivation: string
+  abilityDescription: string
+  tags: string[]
+}
+
+export interface SaveCharacterRequest {
+  name: string
+  alias?: string
+  gender?: string
+  ageDescription?: string
+  identity?: string
+  appearance?: string
+  personality?: string
+  backgroundStory?: string
+  motivation?: string
+  abilityDescription?: string
+  tags?: string[]
+}
+
+export const characterApi = {
+  list: (workId: string) =>
+    apiClient<ApiResult<CharacterItem[]>>(`/api/works/${workId}/characters`),
+  getById: (workId: string, id: string) =>
+    apiClient<ApiResult<CharacterItem>>(`/api/works/${workId}/characters/${id}`),
+  create: (workId: string, req: SaveCharacterRequest) =>
+    apiClient<ApiResult<CharacterItem>>(`/api/works/${workId}/characters`, { method: 'POST', body: JSON.stringify(req) }),
+  update: (workId: string, id: string, req: SaveCharacterRequest) =>
+    apiClient<ApiResult<CharacterItem>>(`/api/works/${workId}/characters/${id}`, { method: 'PUT', body: JSON.stringify(req) }),
+  delete: (workId: string, id: string) =>
+    apiClient<ApiResult<null>>(`/api/works/${workId}/characters/${id}`, { method: 'DELETE' }),
+}
+
+// ==================== Outline 类型 ====================
+
+export interface OutlineNodeItem {
+  id: string
+  workId: string
+  parentId: string | null
+  title: string
+  description: string
+  sequence: number
+  chapterId: string | null
+}
+
+export interface SaveOutlineNodeRequest {
+  parentId?: string | null
+  title: string
+  description?: string
+  sequence?: number
+  chapterId?: string | null
+}
+
+export const outlineApi = {
+  getTree: (workId: string) =>
+    apiClient<ApiResult<OutlineNodeItem[]>>(`/api/works/${workId}/outline`),
+  createNode: (workId: string, req: SaveOutlineNodeRequest) =>
+    apiClient<ApiResult<OutlineNodeItem>>(`/api/works/${workId}/outline`, { method: 'POST', body: JSON.stringify(req) }),
+  updateNode: (workId: string, nodeId: string, req: SaveOutlineNodeRequest) =>
+    apiClient<ApiResult<OutlineNodeItem>>(`/api/works/${workId}/outline/${nodeId}`, { method: 'PUT', body: JSON.stringify(req) }),
+  deleteNode: (workId: string, nodeId: string) =>
+    apiClient<ApiResult<null>>(`/api/works/${workId}/outline/${nodeId}`, { method: 'DELETE' }),
+}
+
+// ==================== Reference 类型 ====================
+
+export interface ReferenceWorkItem {
+  id: string
+  title: string
+  author: string
+  genre: string
+  styleTags: string[]
+  score: number
+  summary: string
+}
+
+export interface ReferencePassageItem {
+  id: string
+  referenceWorkId: string
+  referenceWorkTitle: string
+  referenceWorkAuthor: string
+  referenceWorkGenre: string
+  passageType: string
+  content: string
+  highlightTags: string[]
+  techniqueAnalysis: string
+  favoriteCount: number
+  recommendationCount: number
+  favoritedByMe: boolean
+}
+
+export interface ReferencePassageQueryRequest {
+  keyword?: string
+  passageType?: string
+  tag?: string
+  pageIndex?: number
+  pageSize?: number
+}
+
+export interface SaveReferencePassageRequest {
+  referenceWorkId?: string
+  bookTitle?: string
+  author?: string
+  genre?: string
+  passageType: string
+  content: string
+  highlightTags?: string[]
+  techniqueAnalysis?: string
+}
+
+export const referenceApi = {
+  getWorks: (req?: { keyword?: string }) =>
+    apiClient<ApiResult<ReferenceWorkItem[]>>('/api/references/works', { method: 'POST', body: JSON.stringify(req) }),
+  queryPassages: (req: ReferencePassageQueryRequest) =>
+    apiClient<ApiResult<PageResult<ReferencePassageItem>>>('/api/references/passages/query', { method: 'POST', body: JSON.stringify(req) }),
+  getPassage: (id: string) =>
+    apiClient<ApiResult<ReferencePassageItem>>(`/api/references/passages/${id}`),
+  addPassage: (req: SaveReferencePassageRequest) =>
+    apiClient<ApiResult<ReferencePassageItem>>('/api/references/passages', { method: 'POST', body: JSON.stringify(req) }),
+  deletePassage: (id: string) =>
+    apiClient<ApiResult<null>>(`/api/references/passages/${id}`, { method: 'DELETE' }),
+  toggleFavorite: (id: string) =>
+    apiClient<ApiResult<boolean>>(`/api/references/passages/${id}/favorite`, { method: 'PUT' }),
+}
+
+// ==================== Tag 类型 ====================
+
+export interface TagItem {
+  id: string
+  name: string
+  category: 'scene' | 'content'
+  color: string
+  description: string
+  usageCount: number
+}
+
+export interface SaveTagRequest {
+  name: string
+  category: 'scene' | 'content'
+  color?: string
+  description?: string
+}
+
+export const tagApi = {
+  list: (req?: { keyword?: string; category?: string }) =>
+    apiClient<ApiResult<TagItem[]>>('/api/tags', { method: 'POST', body: JSON.stringify(req) }),
+  create: (req: SaveTagRequest) =>
+    apiClient<ApiResult<TagItem>>('/api/tags/create', { method: 'POST', body: JSON.stringify(req) }),
+  update: (id: string, req: SaveTagRequest) =>
+    apiClient<ApiResult<TagItem>>(`/api/tags/${id}`, { method: 'PUT', body: JSON.stringify(req) }),
+  delete: (id: string) =>
+    apiClient<ApiResult<null>>(`/api/tags/${id}`, { method: 'DELETE' }),
+  getHotTags: (limit?: number) =>
+    apiClient<ApiResult<TagItem[]>>(`/api/tags/hot?limit=${limit ?? 15}`),
+}
+
+// ==================== Dashboard 类型 ====================
+
+export interface DashboardStats {
+  totalWords: number
+  workCount: number
+  creationDays: number
+  aiCallCount: number
+}
+
+export interface RecentWorkItem {
+  id: string
+  title: string
+  genre: string
+  totalWordCount: number
+  status: string
+  updatedAt: string
+}
+
+export const dashboardApi = {
+  getStats: () =>
+    apiClient<ApiResult<DashboardStats>>('/api/dashboard/stats'),
+  getRecentWorks: (limit?: number) =>
+    apiClient<ApiResult<RecentWorkItem[]>>(`/api/dashboard/recent-works?limit=${limit ?? 5}`),
 }

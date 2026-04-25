@@ -149,7 +149,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { tagApi, type TagItem as ApiTagItem } from '@/lib/api'
 import { useNotification } from '@/composables/useNotification'
 import { useConfirm } from '@/composables/useConfirm'
 import '../styles/TagsView.css'
@@ -167,6 +168,10 @@ interface TagItem {
   usageCount: number
 }
 
+function apiToTagItem(api: ApiTagItem): TagItem {
+  return { id: api.id, name: api.name, category: api.category, color: api.color, description: api.description, usageCount: api.usageCount }
+}
+
 // ==================== 颜色选项 ====================
 const colorOptions = [
   '#6366f1', '#8b5cf6', '#a855f7', '#ec4899',
@@ -177,7 +182,7 @@ const colorOptions = [
 // ==================== Mock 数据 ====================
 let nextId = 100
 
-const tags = ref<TagItem[]>([
+const MOCK_TAGS: TagItem[] = [
   { id: '1', name: '开篇', category: 'scene', color: '#6366f1', description: '故事开局、引入背景的段落', usageCount: 128 },
   { id: '2', name: '转折', category: 'scene', color: '#3b82f6', description: '剧情走向发生重大变化的段落', usageCount: 86 },
   { id: '3', name: '高潮', category: 'scene', color: '#f97316', description: '情节最紧张激烈的段落', usageCount: 94 },
@@ -194,7 +199,23 @@ const tags = ref<TagItem[]>([
   { id: '14', name: '虐心', category: 'content', color: '#64748b', description: '令人心痛伤感的内容', usageCount: 41 },
   { id: '15', name: '搞笑', category: 'content', color: '#22c55e', description: '幽默有趣的内容标签', usageCount: 37 },
   { id: '16', name: '权谋', category: 'content', color: '#0ea5e9', description: '政治斗争、权术谋略相关', usageCount: 29 },
-])
+]
+
+const tags = ref<TagItem[]>([])
+
+async function loadTags() {
+  try {
+    const result = await tagApi.list({
+      keyword: keyword.value.trim() || undefined,
+      category: category.value || undefined,
+    })
+    if (result.succeeded ?? result.successed) {
+      tags.value = (result.data ?? []).map(apiToTagItem)
+      return
+    }
+  } catch { /* fallback */ }
+  tags.value = MOCK_TAGS
+}
 
 // ==================== 状态 ====================
 const keyword = ref('')
@@ -251,35 +272,73 @@ function closeModal() {
   editingId.value = null
 }
 
-function submitForm() {
+async function submitForm() {
   if (!isFormValid.value) return
 
   if (editingId.value) {
     // 更新
-    const idx = tags.value.findIndex(t => t.id === editingId.value)
-    if (idx !== -1) {
-      tags.value[idx] = {
-        ...tags.value[idx],
+    try {
+      const result = await tagApi.update(editingId.value, {
         name: form.name.trim(),
         category: form.category,
         color: form.color,
         description: form.description.trim(),
+      })
+      if (result.succeeded ?? result.successed) {
+        notify.success(`标签「${form.name.trim()}」已更新`)
+        loadTags()
+      } else {
+        notify.error(result.message || '更新失败')
+        fallbackUpdateTag()
       }
-      notify.success(`标签「${form.name.trim()}」已更新`)
+    } catch {
+      fallbackUpdateTag()
     }
   } else {
     // 新增
-    tags.value.unshift({
-      id: String(nextId++),
+    try {
+      const result = await tagApi.create({
+        name: form.name.trim(),
+        category: form.category,
+        color: form.color,
+        description: form.description.trim(),
+      })
+      if (result.succeeded ?? result.successed) {
+        notify.success(`标签「${form.name.trim()}」已添加`)
+        loadTags()
+      } else {
+        notify.error(result.message || '创建失败')
+        fallbackAddTag()
+      }
+    } catch {
+      fallbackAddTag()
+    }
+  }
+  closeModal()
+}
+
+function fallbackUpdateTag() {
+  const idx = tags.value.findIndex(t => t.id === editingId.value)
+  if (idx !== -1) {
+    tags.value[idx] = {
+      ...tags.value[idx],
       name: form.name.trim(),
       category: form.category,
       color: form.color,
       description: form.description.trim(),
-      usageCount: 0,
-    })
-    notify.success(`标签「${form.name.trim()}」已添加`)
+    }
   }
-  closeModal()
+}
+
+function fallbackAddTag() {
+  tags.value.unshift({
+    id: String(nextId++),
+    name: form.name.trim(),
+    category: form.category,
+    color: form.color,
+    description: form.description.trim(),
+    usageCount: 0,
+  })
 }
 
 async function handleDelete(tag: TagItem) {
@@ -291,10 +350,21 @@ async function handleDelete(tag: TagItem) {
     type: 'danger',
   })
   if (!ok) return
+  try {
+    const result = await tagApi.delete(tag.id)
+    if (result.succeeded ?? result.successed) {
+      notify.success(`标签「${tag.name}」已删除`)
+      loadTags()
+      return
+    }
+  } catch { /* fallback */ }
   const idx = tags.value.findIndex(t => t.id === tag.id)
   if (idx !== -1) {
     tags.value.splice(idx, 1)
     notify.success(`标签「${tag.name}」已删除`)
   }
 }
+
+// ==================== 生命周期 ====================
+onMounted(() => { loadTags() })
 </script>

@@ -336,3 +336,67 @@
   border-radius: 8px;
   border: 1px solid #e5e7eb;
 }
+
+/* ---------- Active config summary bar ---------- */
+.active-config-bar {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #3730a3;
+}
+.active-config-bar-empty {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.active-config-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.active-config-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4f46e5;
+  flex-shrink: 0;
+}
+.active-config-label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.active-config-name {
+  font-weight: 600;
+}
+.active-config-detail {
+  color: #6366f1;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+/* ---------- Toggle button ---------- */
+.btn-toggle {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+.btn-toggle-on {
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.btn-toggle-on:hover {
+  background: #ecfdf5;
+}
+
+/* ---------- Subtle info row ---------- */
+.info-row-subtle {
+  color: #9ca3af;
+  font-size: 0.75rem;
+}
+.info-row-subtle .info-label {
+  color: #b0b6bf;
+}

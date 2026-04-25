@@ -22,6 +22,9 @@
             <div v-if="p.description" class="info-row"><span class="info-label">描述</span><span>{{ p.description }}</span></div>
           </div>
           <div class="card-actions">
+            <button :class="['btn-outline', 'btn-toggle', { 'btn-toggle-on': p.isActive }]" @click="handleToggleProvider(p)" :disabled="togglingProviderId === p.id">
+              {{ togglingProviderId === p.id ? '...' : p.isActive ? '禁用' : '启用' }}
+            </button>
             <button class="btn-outline" @click="openProviderForm(p)">编辑</button>
             <button class="btn-danger-outline" @click="handleDeleteProvider(p.id)">删除</button>
           </div>
@@ -31,6 +34,19 @@
 
     <!-- ====== Configs Tab ====== -->
     <div v-if="activeTab === 'configs'" class="tab-content">
+      <!-- Active config summary bar -->
+      <div v-if="activeConfig" class="active-config-bar">
+        <div class="active-config-info">
+          <span class="active-config-dot"></span>
+          <span class="active-config-label">当前使用</span>
+          <span class="active-config-name">{{ activeConfig.configName }}</span>
+          <span class="active-config-detail">{{ activeConfig.providerLabel }} / {{ activeConfig.modelName }}</span>
+        </div>
+      </div>
+      <div v-else class="active-config-bar active-config-bar-empty">
+        <span class="active-config-label">尚未激活任何模型配置，请选择一个配置激活</span>
+      </div>
+
       <div class="section-header">
         <h2>模型配置</h2>
         <button class="btn-primary" @click="openConfigForm()"><span>+</span><span>新增配置</span></button>
@@ -54,6 +70,7 @@
               <span v-if="c.supportsStreaming" class="tag">Streaming</span>
               <span v-if="c.supportsToolCall" class="tag">ToolCall</span>
             </div>
+            <div v-if="c.createAt" class="info-row info-row-subtle"><span class="info-label">创建</span><span>{{ formatDate(c.createAt) }}</span></div>
           </div>
           <div class="card-actions">
             <button v-if="!c.isActive" class="btn-primary btn-sm" :disabled="activatingConfigId === c.id" @click="handleActivateConfig(c.id)">
@@ -94,6 +111,10 @@
           <div class="field">
             <label>API Key <span class="req">*</span></label>
             <input v-model="providerForm.apiKey" type="password" :placeholder="editingProvider ? '留空则不修改' : 'sk-...'" />
+          </div>
+          <div class="field field-switch">
+            <label>启用状态</label>
+            <label class="switch"><input type="checkbox" v-model="providerForm.isActive" /><span class="slider"></span></label>
           </div>
           <div class="field">
             <label>描述</label>
@@ -190,6 +211,12 @@
                 <label class="switch"><input type="checkbox" v-model="configForm.supportsStreaming" /><span class="slider"></span></label>
               </div>
             </div>
+            <div class="field-row">
+              <div class="field field-switch">
+                <label>支持工具调用</label>
+                <label class="switch"><input type="checkbox" v-model="configForm.supportsToolCall" /><span class="slider"></span></label>
+              </div>
+            </div>
             <div class="field">
               <label>能力标签（逗号分隔）</label>
               <input v-model="capabilityTagsInput" type="text" placeholder="chat, code, vision" />
@@ -245,6 +272,15 @@ function preferenceLabel(p: string): string {
   return map[p] || p || '-'
 }
 
+function formatDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return dateStr
+  }
+}
+
 // ==================== Tab state ====================
 
 const props = withDefaults(defineProps<{ activeTab?: 'providers' | 'configs' }>(), {
@@ -276,8 +312,8 @@ const showProviderModal = ref(false)
 const editingProvider = ref<AIModelProvider | null>(null)
 const savingProvider = ref(false)
 
-const emptyProviderForm = (): { label: string; provider: string; apiBaseUrl: string; apiKey: string; description: string } => ({
-  label: '', provider: 'openai', apiBaseUrl: '', apiKey: '', description: '',
+const emptyProviderForm = (): { label: string; provider: string; apiBaseUrl: string; apiKey: string; description: string; isActive: boolean } => ({
+  label: '', provider: 'openai', apiBaseUrl: '', apiKey: '', description: '', isActive: true,
 })
 
 const providerForm = ref(emptyProviderForm())
@@ -291,6 +327,7 @@ function openProviderForm(p?: AIModelProvider) {
       apiBaseUrl: p.apiBaseUrl,
       apiKey: '',
       description: p.description,
+      isActive: p.isActive,
     }
   } else {
     editingProvider.value = null
@@ -324,6 +361,7 @@ async function handleSaveProvider() {
       apiBaseUrl: f.apiBaseUrl,
       apiKey: f.apiKey,
       description: f.description,
+      isActive: f.isActive,
     }
     const result = editingProvider.value
       ? await modelApi.updateProvider(editingProvider.value.id, req)
@@ -339,6 +377,32 @@ async function handleSaveProvider() {
     notify.error(err instanceof Error ? err.message : '保存失败')
   } finally {
     savingProvider.value = false
+  }
+}
+
+const togglingProviderId = ref<string | null>(null)
+
+async function handleToggleProvider(p: AIModelProvider) {
+  togglingProviderId.value = p.id
+  try {
+    const req: SaveProviderRequest = {
+      label: p.label,
+      provider: p.provider,
+      apiBaseUrl: p.apiBaseUrl,
+      apiKey: '',
+      description: p.description,
+      isActive: !p.isActive,
+    }
+    const result = await modelApi.updateProvider(p.id, req)
+    if (isOk(result)) {
+      await loadProviders()
+    } else {
+      notify.error(result.message || '切换状态失败')
+    }
+  } catch (err) {
+    notify.error(err instanceof Error ? err.message : '切换状态失败')
+  } finally {
+    togglingProviderId.value = null
   }
 }
 
@@ -368,6 +432,16 @@ async function handleDeleteProvider(id: string) {
 const configs = ref<UserModelConfig[]>([])
 const loadingConfigs = ref(false)
 const activatingConfigId = ref<string | null>(null)
+const activeConfig = ref<UserModelConfig | null>(null)
+
+async function loadActiveConfig() {
+  try {
+    const result = await modelApi.getActiveConfig()
+    activeConfig.value = isOk(result) ? result.data : null
+  } catch {
+    activeConfig.value = null
+  }
+}
 
 async function loadConfigs() {
   loadingConfigs.value = true
@@ -380,6 +454,7 @@ async function loadConfigs() {
   } finally {
     loadingConfigs.value = false
   }
+  await loadActiveConfig()
 }
 
 // Config modal
@@ -402,6 +477,7 @@ interface ConfigFormState {
   contextWindow: number | undefined
   maxOutputTokens: number | undefined
   supportsStreaming: boolean
+  supportsToolCall: boolean
 }
 
 const emptyConfigForm = (): ConfigFormState => ({
@@ -409,7 +485,7 @@ const emptyConfigForm = (): ConfigFormState => ({
   fallbackProviderId: '', fallbackModelName: '',
   useFallback: false, preference: '', description: '',
   estimateCost: undefined, contextWindow: undefined,
-  maxOutputTokens: undefined, supportsStreaming: true,
+  maxOutputTokens: undefined, supportsStreaming: true, supportsToolCall: false,
 })
 
 const configForm = ref<ConfigFormState>(emptyConfigForm())
@@ -430,6 +506,7 @@ function openConfigForm(c?: UserModelConfig) {
       contextWindow: c.contextWindow || undefined,
       maxOutputTokens: c.maxOutputTokens || undefined,
       supportsStreaming: c.supportsStreaming,
+      supportsToolCall: c.supportsToolCall,
     }
     capabilityTagsInput.value = (c.capabilityTags || []).join(', ')
   } else {
@@ -469,6 +546,7 @@ async function handleSaveConfig() {
       contextWindow: toNum(f.contextWindow),
       maxOutputTokens: toNum(f.maxOutputTokens),
       supportsStreaming: f.supportsStreaming,
+      supportsToolCall: f.supportsToolCall,
       capabilityTags: tags.length > 0 ? tags : undefined,
     }
     if (editingConfig.value) {
