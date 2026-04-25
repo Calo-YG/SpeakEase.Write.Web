@@ -86,4 +86,6 @@ export const modelApi = {
     apiClient<ApiResult<null>>(`/api/model/configs/${id}/activate`, { method: 'PUT' }),
   deleteConfig: (id: string) =>
     apiClient<ApiResult<null>>(`/api/model/configs/${id}`, { method: 'DELETE' }),
+  getProviderModels: (providerId: string) =>
+    apiClient<ApiResult<string[]>>(`/api/model/providers/${providerId}/models`),
 }

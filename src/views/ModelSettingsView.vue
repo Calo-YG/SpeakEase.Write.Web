@@ -144,12 +144,40 @@
               <label>提供商 <span class="req">*</span></label>
               <select v-model="configForm.providerId">
                 <option value="">请选择</option>
-                <option v-for="p in providers" :key="p.id" :value="p.id">{{ p.label }}</option>
+                <option v-for="p in providers" :key="p.id" :value="p.id"> {{ p.label }}</option>
               </select>
             </div>
             <div class="field">
               <label>模型名称 <span class="req">*</span></label>
-              <input v-model="configForm.modelName" type="text" placeholder="gpt-4o" />
+              <div class="model-combo" ref="modelComboRef">
+                <div class="model-input-wrap">
+                  <input
+                    v-model="configForm.modelName"
+                    :placeholder="loadingModels ? '加载中...' : 'gpt-4o'"
+                    :disabled="loadingModels"
+                    autocomplete="off"
+                    @focus="modelDropdownOpen = true"
+                    @input="modelDropdownOpen = true"
+                    @blur="handleModelComboBlur"
+                  />
+                  <span v-if="loadingModels" class="model-loading">…</span>
+                  <button
+                    v-else-if="providerModels.length > 0"
+                    class="model-combo-arrow"
+                    :class="{ 'model-combo-arrow-open': modelDropdownOpen }"
+                    @mousedown.prevent="modelDropdownOpen = !modelDropdownOpen"
+                    tabindex="-1"
+                  >▾</button>
+                </div>
+                <ul v-if="modelDropdownOpen && filteredProviderModels.length > 0" class="model-dropdown">
+                  <li
+                    v-for="m in filteredProviderModels"
+                    :key="m"
+                    @mousedown.prevent="selectModel(m)"
+                    :class="{ 'model-dropdown-active': m === configForm.modelName }"
+                  >{{ m }}</li>
+                </ul>
+              </div>
             </div>
           </div>
           <div class="field-row">
@@ -161,23 +189,6 @@
                 <option value="quality">质量优先</option>
                 <option value="balanced">均衡</option>
               </select>
-            </div>
-            <div class="field field-switch">
-              <label>启用回退</label>
-              <label class="switch"><input type="checkbox" v-model="configForm.useFallback" /><span class="slider"></span></label>
-            </div>
-          </div>
-          <div v-if="configForm.useFallback" class="field-row">
-            <div class="field">
-              <label>回退提供商</label>
-              <select v-model="configForm.fallbackProviderId">
-                <option value="">请选择</option>
-                <option v-for="p in providers" :key="p.id" :value="p.id">{{ p.label }}</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>回退模型</label>
-              <input v-model="configForm.fallbackModelName" type="text" placeholder="gpt-3.5-turbo" />
             </div>
           </div>
           <div class="field">
@@ -461,6 +472,43 @@ const savingConfig = ref(false)
 const showAdvanced = ref(false)
 const capabilityTagsInput = ref('')
 
+// 模型列表（由提供商驱动）
+const providerModels = ref<string[]>([])
+const loadingModels = ref(false)
+const modelDropdownOpen = ref(false)
+const modelComboRef = ref<HTMLElement | null>(null)
+
+const filteredProviderModels = computed(() => {
+  const q = (configForm.value.modelName || '').toLowerCase()
+  if (!q) return providerModels.value
+  return providerModels.value.filter(m => m.toLowerCase().includes(q))
+})
+
+function selectModel(name: string) {
+  configForm.value.modelName = name
+  modelDropdownOpen.value = false
+}
+
+function handleModelComboBlur() {
+  setTimeout(() => { modelDropdownOpen.value = false }, 150)
+}
+
+async function fetchProviderModels(providerId: string) {
+  if (!providerId) {
+    providerModels.value = []
+    return
+  }
+  loadingModels.value = true
+  try {
+    const result = await modelApi.getProviderModels(providerId)
+    providerModels.value = isOk(result) ? (result.data || []) : []
+  } catch {
+    providerModels.value = []
+  } finally {
+    loadingModels.value = false
+  }
+}
+
 interface ConfigFormState {
   configName: string
   providerId: string
@@ -506,10 +554,13 @@ function openConfigForm(c?: UserModelConfig) {
       supportsToolCall: c.supportsToolCall,
     }
     capabilityTagsInput.value = (c.capabilityTags || []).join(', ')
+    // 编辑时预加载当前提供商的模型列表
+    fetchProviderModels(c.providerId)
   } else {
     editingConfig.value = null
     configForm.value = emptyConfigForm()
     capabilityTagsInput.value = ''
+    providerModels.value = []
   }
   showAdvanced.value = false
   showConfigModal.value = true
@@ -518,6 +569,7 @@ function openConfigForm(c?: UserModelConfig) {
 function closeConfigModal() {
   showConfigModal.value = false
   editingConfig.value = null
+  modelDropdownOpen.value = false
 }
 
 async function handleSaveConfig() {
@@ -611,6 +663,13 @@ onMounted(() => {
 watch(activeTab, (tab) => {
   if (tab === 'configs' && providers.value.length === 0) {
     loadProviders()
+  }
+})
+
+// 提供商切换时自动拉取模型列表
+watch(() => configForm.value.providerId, (newId) => {
+  if (showConfigModal.value) {
+    fetchProviderModels(newId)
   }
 })
 </script>
