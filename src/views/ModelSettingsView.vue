@@ -99,9 +99,6 @@
             <label>提供商类型 <span class="req">*</span></label>
             <select v-model="providerForm.provider">
               <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="custom">自定义</option>
             </select>
           </div>
           <div class="field">
