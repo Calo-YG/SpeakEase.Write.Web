@@ -199,12 +199,6 @@ async function loadWorks() {
 
 function useMockData() {
   const mock: WorkItem[] = [
-    { id: '1', title: '星尘编年史', genre: '科幻', styleTags: ['硬科幻', '太空歌剧'], description: '人类文明扩张至整个银河系，却在边疆星域发现了一种能改写宇宙法则的古老遗迹……', totalWordCount: 28600, chapterCount: 24, volumeCount: 2, status: 'writing', createdAt: '2025-02-01', updatedAt: new Date(Date.now() - 7200000).toISOString() },
-    { id: '2', title: '雾都迷踪', genre: '悬疑', styleTags: ['推理', '犯罪'], description: '一座被浓雾笼罩的孤岛上，连续发生了五起离奇命案，侦探叶书白独身前往，却发现这座岛隐藏着更深的秘密……', totalWordCount: 9200, chapterCount: 8, volumeCount: 1, status: 'writing', createdAt: '2025-03-10', updatedAt: new Date(Date.now() - 86400000).toISOString() },
-    { id: '3', title: '花间辞', genre: '古风', styleTags: ['仙侠', '言情'], description: '她是化形千年的白狐，他是执掌生死的阎王，一段跨越三生三世的虐恋，终于在花开之时画下句点……', totalWordCount: 5000, chapterCount: 6, volumeCount: 1, status: 'writing', createdAt: '2025-04-01', updatedAt: new Date(Date.now() - 259200000).toISOString() },
-    { id: '4', title: '钢铁玫瑰', genre: '都市', styleTags: ['商战', '女强'], description: '从一无所有的小镇女孩，到统御三大商业帝国的女王，她用十年时间证明——命运从不等人，只有自己才能书写传奇。', totalWordCount: 145000, chapterCount: 112, volumeCount: 4, status: 'completed', createdAt: '2024-06-15', updatedAt: new Date(Date.now() - 604800000).toISOString() },
-    { id: '5', title: '末日方舟', genre: '末世', styleTags: ['丧尸', '生存'], description: '病毒爆发后的第三年，幸存者们建立了最后的堡垒，但内忧外患之下，人性的裂缝开始显现……', totalWordCount: 67000, chapterCount: 55, volumeCount: 3, status: 'hiatus', createdAt: '2024-10-20', updatedAt: new Date(Date.now() - 1296000000).toISOString() },
-    { id: '6', title: '剑道至尊', genre: '玄幻', styleTags: ['修真', '爽文'], description: '废柴少年得天机传承，从此踏上剑道巅峰，俯瞰苍生！', totalWordCount: 320000, chapterCount: 280, volumeCount: 6, status: 'writing', createdAt: '2024-01-08', updatedAt: new Date(Date.now() - 43200000).toISOString() },
   ]
   const filtered = keyword.value
     ? mock.filter(w => w.title.includes(keyword.value) || w.description.includes(keyword.value))
@@ -270,6 +264,7 @@ function fallbackCreateWork(data: Partial<WorkItem>) {
     id: `mock-${Date.now()}`,
     title: data.title ?? '',
     genre: data.genre ?? '',
+    perspective : data.perspective ?? '',
     styleTags: data.styleTags ?? [],
     description: data.description ?? '',
     totalWordCount: 0,

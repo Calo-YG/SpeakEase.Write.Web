@@ -10,6 +10,7 @@ export interface WorkItem {
   title: string
   genre: string
   styleTags: string[]
+  perspective: string
   description: string
   coverUrl?: string
   totalWordCount: number
@@ -32,6 +33,7 @@ export interface WorkCreateRequest {
   styleTags: string[]
   description: string
   coverUrl?: string
+  perspective?: string
 }
 
 export interface WorkUpdateRequest {
@@ -41,6 +43,7 @@ export interface WorkUpdateRequest {
   description?: string
   coverUrl?: string
   status?: string
+  perspective?: string
 }
 
 export const workApi = {
