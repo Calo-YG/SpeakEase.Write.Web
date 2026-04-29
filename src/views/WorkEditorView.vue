@@ -29,9 +29,9 @@
       <div class="editor-main">
         <!-- AI 工具栏 -->
         <EditorToolbar
-          :show-characters="showCharacters"
-          :show-outline="showOutline"
-          :show-ai-chat="showAiChat"
+          :show-characters="rightPanel === 'characters'"
+          :show-outline="rightPanel === 'outline'"
+          :show-ai-chat="rightPanel === 'ai'"
           :work-title="work?.title"
           :work-genre="work?.genre"
           :chapter-title="activeChapter?.title"
@@ -40,9 +40,9 @@
           @ai-write="handleAiWrite"
           @polish="handlePolish"
           @inspire="handleInspire"
-          @toggle-characters="showCharacters = !showCharacters"
-          @toggle-outline="showOutline = !showOutline"
-          @toggle-ai-chat="showAiChat = !showAiChat"
+          @toggle-characters="rightPanel = rightPanel === 'characters' ? '' : 'characters'"
+          @toggle-outline="rightPanel = rightPanel === 'outline' ? '' : 'outline'"
+          @toggle-ai-chat="rightPanel = rightPanel === 'ai' ? '' : 'ai'"
         />
 
         <!-- 内容区 -->
@@ -95,16 +95,33 @@
         </div>
       </div>
 
-      <!-- AI 对话面板（右侧） -->
-      <Transition name="panel-slide">
-        <AiChatPanel
-          v-if="showAiChat"
-          :work="work"
-          :chapter="activeChapter"
-          :chapter-content="chapterContents[activeChapterId] ?? ''"
-          @close="showAiChat = false"
-        />
-      </Transition>
+      <!-- 右侧面板 Tab 切换 -->
+      <div class="editor-right-panels">
+        <!-- Tab 按钮 -->
+        <div class="right-tab-bar">
+          <button :class="['right-tab', { active: rightPanel === 'ai' }]" @click="rightPanel = rightPanel === 'ai' ? '' : 'ai'" title="AI 助手">AI</button>
+          <button :class="['right-tab', { active: rightPanel === 'characters' }]" @click="rightPanel = rightPanel === 'characters' ? '' : 'characters'" title="角色">角色</button>
+          <button :class="['right-tab', { active: rightPanel === 'outline' }]" @click="rightPanel = rightPanel === 'outline' ? '' : 'outline'" title="大纲">大纲</button>
+        </div>
+
+        <Transition name="panel-slide">
+          <AiChatPanel
+            v-if="rightPanel === 'ai'"
+            :work="work"
+            :chapter="activeChapter"
+            :chapter-content="chapterContents[activeChapterId] ?? ''"
+            @close="rightPanel = ''"
+          />
+          <CharacterPanel
+            v-else-if="rightPanel === 'characters'"
+            :work-id="work?.id ?? ''"
+          />
+          <OutlinePanel
+            v-else-if="rightPanel === 'outline'"
+            :work-id="work?.id ?? ''"
+          />
+        </Transition>
+      </div>
     </div>
 
     <!-- 编辑器设置面板 -->
@@ -154,13 +171,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import type { WorkItem } from '@/lib/api'
-import { chapterApi, type ChapterItem as ApiChapterItem, type ChapterDetail } from '@/lib/api'
+import { chapterApi, autoSaveApi, type ChapterItem as ApiChapterItem, type ChapterDetail } from '@/lib/api'
 import { useNotification } from '@/composables/useNotification'
 import EditorTopBar from '@/components/EditorTopBar.vue'
 import ChapterSidebar from '@/components/ChapterSidebar.vue'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
 import EditorToolbar from '@/components/EditorToolbar.vue'
 import AiChatPanel from '@/components/AiChatPanel.vue'
+import CharacterPanel from '@/components/CharacterPanel.vue'
+import OutlinePanel from '@/components/OutlinePanel.vue'
 import EditorSettingsPanel from '@/components/EditorSettingsPanel.vue'
 import type { EditorSettings } from '@/components/EditorSettingsPanel.vue'
 import '../styles/WorkEditorView.css'
@@ -282,9 +301,9 @@ function onTitleInput() {
 function onDocInput() {
   const chId = activeChapterId.value
   chapterContents[chId] = editorRef.value?.innerHTML ?? ''
-  // 更新字数
   const ch = chapters.value.find(c => c.id === chId)
   if (ch) ch.wordCount = currentWordCount.value
+  markDirty()
 }
 
 function onDocKeydown(e: KeyboardEvent) {
@@ -410,9 +429,7 @@ async function handleSave() {
 }
 
 // ==================== 侧边板 ====================
-const showCharacters = ref(false)
-const showOutline = ref(false)
-const showAiChat = ref(false)
+const rightPanel = ref('')
 const showSettings = ref(false)
 
 // ==================== 编辑器设置 ====================
@@ -421,7 +438,7 @@ const DEFAULT_SETTINGS: EditorSettings = {
   lineHeight: 1.9,
   docWidth: 700,
   theme: 'light',
-  autoSave: false,
+  autoSave: true,
 }
 
 const editorSettings = ref<EditorSettings>({ ...DEFAULT_SETTINGS })
@@ -465,26 +482,50 @@ function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement
 }
 
-// ==================== 生命周期 ====================
+// ==================== 自动保存 ====================
 let autoSaveTimer: ReturnType<typeof setInterval> | null = null
+let autoSaveDirty = false
+
+function markDirty() { autoSaveDirty = true }
+
+async function doAutoSave() {
+  const workId = props.work?.id
+  const chId = activeChapterId.value
+  if (!workId || !chId || !autoSaveDirty) return
+  chapterContents[chId] = editorRef.value?.innerHTML ?? ''
+
+  try {
+    await autoSaveApi.save({
+      entityType: 'chapter',
+      entityId: chId,
+      content: chapterContents[chId],
+      title: chapters.value.find(c => c.id === chId)?.title,
+      summary: chapters.value.find(c => c.id === chId)?.note,
+    })
+    autoSaveDirty = false
+  } catch { /* silent fail for auto-save */ }
+}
 
 watch(() => editorSettings.value.autoSave, (val) => {
   if (autoSaveTimer) clearInterval(autoSaveTimer)
   if (val) {
-    autoSaveTimer = setInterval(() => {
-      handleSave()
-    }, 30000)
+    autoSaveTimer = setInterval(doAutoSave, 15000)
   }
 })
 
 onMounted(() => {
   loadChapters()
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  if (editorSettings.value.autoSave) {
+    autoSaveTimer = setInterval(doAutoSave, 15000)
+  }
 })
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
   if (autoSaveTimer) clearInterval(autoSaveTimer)
+  // 离开前最后保存一次
+  doAutoSave()
 })
 
 watch(() => props.work, () => {

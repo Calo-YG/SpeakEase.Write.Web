@@ -1,6 +1,5 @@
 // ============================================================
 // AINW API 统一出口
-// 所有模块从此处统一 re-export，保持 `@/lib/api` 导入路径不变
 // ============================================================
 
 export * from './types'
@@ -18,3 +17,6 @@ export * from './outline'
 export * from './reference'
 export * from './tag'
 export * from './dashboard'
+export * from './volume'
+export * from './version'
+export * from './extras'

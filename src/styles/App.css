@@ -75,7 +75,28 @@
   flex: 1;
   justify-content: flex-end;
 }
-.bar-user {
+.bar-user-name {
+  font-size: 0.825rem;
+  color: #374151;
+  font-weight: 500;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #6b7280;
+}
+.bar-settings:hover { background: #f3f4f6; color: #374151; }
+.bar-logout {
   width: 32px;
   height: 32px;
   border-radius: 50%;

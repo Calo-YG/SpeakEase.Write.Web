@@ -241,3 +241,53 @@
   gap: 0.5rem;
   justify-content: flex-end;
 }
+
+/* ── 右侧面板 Tab 切换 ── */
+.editor-right-panels {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  max-width: 360px;
+  border-left: 1px solid var(--editor-border, #e5e7eb);
+  flex-shrink: 0;
+}
+
+.right-tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--editor-border, #e5e7eb);
+  background: var(--editor-bg, #fff);
+}
+
+.right-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--editor-muted, #6b7280);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background .15s, color .15s;
+}
+
+.right-tab:hover { background: var(--editor-accent-bg, #f3f4f6); color: var(--editor-text, #111827); }
+
+.right-tab.active {
+  background: var(--editor-accent, #4f46e5);
+  color: #fff;
+}
+
+.panel-slide-enter-active, .panel-slide-leave-active {
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+.panel-slide-enter-from {
+  transform: translateX(40px);
+  opacity: 0;
+}
+
+.panel-slide-leave-to {
+  transform: translateX(40px);
+  opacity: 0;
+}
