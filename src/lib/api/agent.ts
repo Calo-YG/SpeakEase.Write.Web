@@ -9,6 +9,7 @@ import type { LLMChatMessage, LLMToolCallDelta, LLMToolExecutionResult } from '.
 
 export interface AgentChatRequest {
   messages: LLMChatMessage[]
+  workId?: string
   skillName?: string
   temperature?: number
   maxTokens?: number | null

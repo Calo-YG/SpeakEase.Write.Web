@@ -250,6 +250,7 @@
   max-width: 360px;
   border-left: 1px solid var(--editor-border, #e5e7eb);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .right-tab-bar {

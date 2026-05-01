@@ -96,13 +96,12 @@
       </div>
 
       <!-- 右侧面板 Tab 切换 -->
-      <div class="editor-right-panels">
-        <!-- Tab 按钮 -->
-        <div class="right-tab-bar">
+      <div v-if="rightPanel" class="editor-right-panels">
+        <!-- <div class="right-tab-bar">
           <button :class="['right-tab', { active: rightPanel === 'ai' }]" @click="rightPanel = rightPanel === 'ai' ? '' : 'ai'" title="AI 助手">AI</button>
           <button :class="['right-tab', { active: rightPanel === 'characters' }]" @click="rightPanel = rightPanel === 'characters' ? '' : 'characters'" title="角色">角色</button>
           <button :class="['right-tab', { active: rightPanel === 'outline' }]" @click="rightPanel = rightPanel === 'outline' ? '' : 'outline'" title="大纲">大纲</button>
-        </div>
+        </div> -->
 
         <Transition name="panel-slide">
           <AiChatPanel
@@ -115,10 +114,16 @@
           <CharacterPanel
             v-else-if="rightPanel === 'characters'"
             :work-id="work?.id ?? ''"
+            :work-title="work?.title ?? ''"
+            :work-genre="work?.genre ?? ''"
           />
           <OutlinePanel
             v-else-if="rightPanel === 'outline'"
             :work-id="work?.id ?? ''"
+            :work-title="work?.title ?? ''"
+            :work-genre="work?.genre ?? ''"
+            :chapter-title="activeChapter?.title ?? ''"
+            :chapter-content="chapterContents[activeChapterId] ?? ''"
           />
         </Transition>
       </div>

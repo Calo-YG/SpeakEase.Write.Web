@@ -253,6 +253,7 @@ async function sendMessage(text: string) {
 
   await agentStreamChat(
     {
+      workId: props.work?.id ?? '',
       messages: [
         { role: 'system', content: systemPrompt },
         ...contextMessages,
