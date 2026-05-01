@@ -257,3 +257,40 @@
   color: var(--editor-accent, #4f46e5);
   background: var(--editor-accent-bg, #eef2ff);
 }
+
+/* ── 卷分组标题 ── */
+.ch-volume-group {
+  margin-bottom: 4px;
+}
+
+.ch-volume-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 4px;
+  margin-bottom: 2px;
+}
+
+.ch-volume-header:not(:first-child) {
+  border-top: 1px solid var(--editor-border, #e5e7eb);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.ch-volume-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--editor-accent, #4f46e5);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.ch-volume-count {
+  font-size: 0.68rem;
+  padding: 0px 5px;
+  border-radius: 8px;
+  background: var(--editor-accent-bg, #eef2ff);
+  color: var(--editor-accent, #4f46e5);
+  font-weight: 600;
+}

@@ -13,6 +13,8 @@
       @save="handleSave"
       @toggle-fullscreen="handleToggleFullscreen"
       @settings="showSettings = !showSettings"
+      @export-txt="handleExportTxt"
+      @export-epub="handleExportEpub"
     />
 
     <!-- 主体布局：侧边栏 + 编辑区 + AI对话面板 -->
@@ -21,6 +23,7 @@
       <ChapterSidebar
         :chapters="chapters"
         :active-chapter-id="activeChapterId"
+        :volumes="volumes"
         @select="handleSelectChapter"
         @new-chapter="openNewChapterModal"
       />
@@ -32,17 +35,25 @@
           :show-characters="rightPanel === 'characters'"
           :show-outline="rightPanel === 'outline'"
           :show-ai-chat="rightPanel === 'ai'"
+          :show-foreshadowing="rightPanel === 'foreshadowing'"
+          :show-timeline="rightPanel === 'timeline'"
+          :show-volumes="rightPanel === 'volumes'"
+          :show-inspiration="rightPanel === 'inspiration'"
           :work-title="work?.title"
           :work-genre="work?.genre"
           :chapter-title="activeChapter?.title"
           :chapter-content="chapterContents[activeChapterId] ?? ''"
           @ai-continue="handleAiContinue"
           @ai-write="handleAiWrite"
-          @polish="handlePolish"
-          @inspire="handleInspire"
+          @polish="(text: string) => handlePolish(text)"
+          @inspire="(text: string) => handleInspire(text)"
           @toggle-characters="rightPanel = rightPanel === 'characters' ? '' : 'characters'"
           @toggle-outline="rightPanel = rightPanel === 'outline' ? '' : 'outline'"
+          @toggle-volumes="rightPanel = rightPanel === 'volumes' ? '' : 'volumes'"
           @toggle-ai-chat="rightPanel = rightPanel === 'ai' ? '' : 'ai'"
+          @toggle-foreshadowing="rightPanel = rightPanel === 'foreshadowing' ? '' : 'foreshadowing'"
+          @toggle-timeline="rightPanel = rightPanel === 'timeline' ? '' : 'timeline'"
+          @toggle-inspiration="rightPanel = rightPanel === 'inspiration' ? '' : 'inspiration'"
         />
 
         <!-- 内容区 -->
@@ -125,6 +136,38 @@
             :chapter-title="activeChapter?.title ?? ''"
             :chapter-content="chapterContents[activeChapterId] ?? ''"
           />
+          <VolumePanel
+            v-else-if="rightPanel === 'volumes'"
+            :work-id="work?.id ?? ''"
+            :chapters="chapters.map((c, i) => ({ id: c.id, workId: work?.id ?? '', volumeId: c.volumeId || '', title: c.title, sequence: i + 1, wordCount: c.wordCount || 0, status: c.badge || 'draft', summary: '', authorNotes: c.note || '', lastContentSavedAt: null }))"
+            @chapter-moved="handleChapterMoved"
+          />
+          <ForeshadowingPanel
+            v-else-if="rightPanel === 'foreshadowing'"
+            :work-id="work?.id ?? ''"
+          />
+          <TimelinePanel
+            v-else-if="rightPanel === 'timeline'"
+            :work-id="work?.id ?? ''"
+          />
+          <InspirationPanel
+            v-else-if="rightPanel === 'inspiration'"
+            :work-id="work?.id ?? ''"
+          />
+          <VersionDiffPanel
+            v-else-if="rightPanel === 'version'"
+            :work-id="props.work?.id ?? ''"
+            :chapter-id="activeChapterId"
+            :current-content="chapterContents[activeChapterId] ?? ''"
+            @close="rightPanel = ''"
+            @restore="handleVersionRestore"
+          />
+          <WritingStatsPanel
+            v-else-if="rightPanel === 'stats'"
+            :chapters="chapters.map((c, i) => ({ id: c.id, title: c.title, wordCount: c.wordCount || 0, status: c.badge || 'draft', sequence: i + 1 }))"
+            :total-word-count="props.work?.totalWordCount || 0"
+            :daily-word-count="dailyWordCount"
+          />
         </Transition>
       </div>
     </div>
@@ -181,12 +224,21 @@ import { useNotification } from '@/composables/useNotification'
 import EditorTopBar from '@/components/EditorTopBar.vue'
 import ChapterSidebar from '@/components/ChapterSidebar.vue'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
+import type { VolumeInfo } from '@/components/ChapterSidebar.vue'
 import EditorToolbar from '@/components/EditorToolbar.vue'
 import AiChatPanel from '@/components/AiChatPanel.vue'
 import CharacterPanel from '@/components/CharacterPanel.vue'
 import OutlinePanel from '@/components/OutlinePanel.vue'
+import ForeshadowingPanel from '@/components/ForeshadowingPanel.vue'
+import TimelinePanel from '@/components/TimelinePanel.vue'
+import InspirationPanel from '@/components/InspirationPanel.vue'
 import EditorSettingsPanel from '@/components/EditorSettingsPanel.vue'
 import type { EditorSettings } from '@/components/EditorSettingsPanel.vue'
+import VersionDiffPanel from '@/components/VersionDiffPanel.vue'
+import WritingStatsPanel from '@/components/WritingStatsPanel.vue'
+import VolumePanel from '@/components/VolumePanel.vue'
+import { volumeApi } from '@/lib/api/volume'
+import { exportApi, downloadBlob } from '@/lib/api/export'
 import '../styles/WorkEditorView.css'
 import '../styles/WorksView.css'
 
@@ -215,6 +267,18 @@ const chapters = ref<ChapterItem[]>([])
 const chapterContents: Record<string, string> = {}
 const activeChapterId = ref('')
 const activeChapter = computed(() => chapters.value.find(c => c.id === activeChapterId.value) ?? null)
+const volumes = ref<VolumeInfo[]>([])
+
+async function loadVolumes() {
+  const workId = props.work?.id
+  if (!workId) return
+  try {
+    const result = await volumeApi.list(workId)
+    if (result.succeeded ?? result.successed) {
+      volumes.value = (result.data ?? []).map(v => ({ id: v.id, title: v.title }))
+    }
+  } catch { /* ignored */ }
+}
 
 function apiToChapterItem(api: ApiChapterItem): ChapterItem {
   const badgeMap: Record<string, 'draft' | 'published' | 'review'> = { draft: 'draft', published: 'published', review: 'review' }
@@ -222,6 +286,7 @@ function apiToChapterItem(api: ApiChapterItem): ChapterItem {
     id: api.id,
     title: api.title,
     wordCount: api.wordCount,
+    volumeId: api.volumeId || '',
     badge: badgeMap[api.status] ?? 'draft',
     note: api.authorNotes || undefined,
   }
@@ -410,12 +475,85 @@ function handleAiWrite(text: string) {
   notify.success('AI 写本章内容已插入')
 }
 
-function handlePolish() {
-  notify.info('润色功能即将上线')
+function handlePolish(text: string) {
+  if (text.startsWith('（') && text.endsWith('）')) {
+    notify.info(text)
+    return
+  }
+  if (!editorRef.value) return
+  editorRef.value.innerHTML = ''
+  const paragraphs = text.split('\n\n').filter(Boolean)
+  paragraphs.forEach(t => {
+    const p = document.createElement('p')
+    p.className = 'ai-polished'
+    p.textContent = t.trim()
+    editorRef.value!.appendChild(p)
+  })
+  onDocInput()
+  notify.success('润色结果已替换到编辑器（可 Ctrl+Z 撤销）')
 }
 
-function handleInspire() {
-  notify.info('灵感功能即将上线')
+function handleInspire(text: string) {
+  if (text.startsWith('（') && text.endsWith('）')) {
+    notify.info(text)
+    return
+  }
+  rightPanel.value = 'ai'
+  nextTick(() => {
+    const panel = document.querySelector('.ai-chat-panel')
+    if (panel) {
+      const event = new CustomEvent('ai-inspire', { detail: text })
+      panel.dispatchEvent(event)
+    }
+  })
+  notify.success('灵感已生成，查看 AI 对话面板')
+}
+
+function handleVersionRestore(content: string) {
+  if (!editorRef.value) return
+  editorRef.value.innerHTML = ''
+  const paragraphs = content.split('\n\n').filter(Boolean)
+  paragraphs.forEach(t => {
+    const p = document.createElement('p')
+    p.textContent = t.trim()
+    editorRef.value!.appendChild(p)
+  })
+  onDocInput()
+  notify.success('版本已恢复到编辑器（可 Ctrl+Z 撤销）')
+}
+
+function handleChapterMoved(chapterId: string, newVolumeId: string) {
+  if (chapterId) {
+    const ch = chapters.value.find(c => c.id === chapterId)
+    if (ch) ch.volumeId = newVolumeId
+  } else {
+    loadChapters()
+    loadVolumes()
+  }
+}
+
+async function handleExportTxt() {
+  if (!props.work?.id) return
+  try {
+    notify.info('正在导出 TXT...')
+    const blob = await exportApi.exportTxt(props.work.id)
+    downloadBlob(blob, `${props.work.title || '作品'}.txt`)
+    notify.success('TXT 导出成功')
+  } catch (e: any) {
+    notify.error(`导出失败：${e.message || '未知错误'}`)
+  }
+}
+
+async function handleExportEpub() {
+  if (!props.work?.id) return
+  try {
+    notify.info('正在导出 EPUB...')
+    const blob = await exportApi.exportEpub(props.work.id)
+    downloadBlob(blob, `${props.work.title || '作品'}.epub`)
+    notify.success('EPUB 导出成功')
+  } catch (e: any) {
+    notify.error(`导出失败：${e.message || '未知错误'}`)
+  }
 }
 
 // ==================== 保存 ====================
@@ -520,6 +658,7 @@ watch(() => editorSettings.value.autoSave, (val) => {
 
 onMounted(() => {
   loadChapters()
+  loadVolumes()
   document.addEventListener('fullscreenchange', onFullscreenChange)
   if (editorSettings.value.autoSave) {
     autoSaveTimer = setInterval(doAutoSave, 15000)
@@ -535,5 +674,6 @@ onUnmounted(() => {
 
 watch(() => props.work, () => {
   loadChapters()
+  loadVolumes()
 })
 </script>

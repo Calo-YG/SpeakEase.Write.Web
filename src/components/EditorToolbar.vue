@@ -36,16 +36,18 @@
         AI续写
       </button>
       <!-- 润色 -->
-      <button class="etool-btn" @click="$emit('polish')" title="润色文字">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <button :class="['etool-btn', { loading: polishLoading }]" @click="handlePolish" title="润色文字">
+        <div v-if="polishLoading" class="etool-spinner"></div>
+        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 20h9"/>
           <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
         </svg>
         润色
       </button>
       <!-- 灵感 -->
-      <button class="etool-btn" @click="$emit('inspire')" title="获取灵感">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <button :class="['etool-btn', { loading: inspireLoading }]" @click="handleInspire" title="获取灵感">
+        <div v-if="inspireLoading" class="etool-spinner"></div>
+        <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="5"/>
           <line x1="12" y1="1" x2="12" y2="3"/>
           <line x1="12" y1="21" x2="12" y2="23"/>
@@ -103,6 +105,35 @@
         </svg>
         大纲
       </button>
+      <button :class="['etool-btn', 'side', { active: showVolumes }]" @click="$emit('toggle-volumes')" title="分卷管理">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
+        </svg>
+        分卷
+      </button>
+      <button :class="['etool-btn', 'side', { active: showForeshadowing }]" @click="$emit('toggle-foreshadowing')" title="伏笔管理">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          <line x1="11" y1="8" x2="11" y2="14"/>
+          <line x1="8" y1="11" x2="14" y2="11"/>
+        </svg>
+        伏笔
+      </button>
+      <button :class="['etool-btn', 'side', { active: showTimeline }]" @click="$emit('toggle-timeline')" title="时间线">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        时间线
+      </button>
+      <button :class="['etool-btn', 'side', { active: showInspiration }]" @click="$emit('toggle-inspiration')" title="灵感记录">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        灵感
+      </button>
     </div>
   </div>
 </template>
@@ -115,7 +146,11 @@ import '../styles/EditorToolbar.css'
 const props = defineProps<{
   showCharacters: boolean
   showOutline: boolean
+  showVolumes: boolean
   showAiChat: boolean
+  showForeshadowing: boolean
+  showTimeline: boolean
+  showInspiration: boolean
   // 由 WorkEditorView 传入的当前章节上下文
   chapterTitle?: string
   chapterContent?: string
@@ -126,11 +161,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   'ai-continue': [text: string]
   'ai-write': [text: string]
-  polish: []
-  inspire: []
+  'polish': [text: string]
+  'inspire': [text: string]
   'toggle-characters': []
   'toggle-outline': []
+  'toggle-volumes': []
   'toggle-ai-chat': []
+  'toggle-foreshadowing': []
+  'toggle-timeline': []
+  'toggle-inspiration': []
 }>()
 
 // ── 模式 ──
@@ -263,6 +302,117 @@ async function handleAiWrite() {
       },
     },
     writeAbort.signal,
+  )
+}
+
+// ── 润色 ──
+const polishLoading = ref(false)
+let polishAbort: AbortController | null = null
+
+async function handlePolish() {
+  if (polishLoading.value) {
+    polishAbort?.abort()
+    polishLoading.value = false
+    return
+  }
+
+  const plainContent = htmlToText(props.chapterContent ?? '')
+  if (!plainContent) {
+    emit('polish', '（请先输入一些内容再进行润色）')
+    return
+  }
+
+  polishLoading.value = true
+  polishAbort = new AbortController()
+
+  const workInfo = props.workTitle
+    ? `作品《${props.workTitle}》${props.workGenre ? `，题材：${props.workGenre}` : ''}`
+    : ''
+
+  const systemPrompt = `你是一位资深的文字编辑，擅长${workInfo ? `${workInfo}这类作品的` : ''}文字润色。
+请对以下文字进行润色，要求：
+1. 保持原文的情节和人物意图不变
+2. 提升文笔质感，让表达更优美、更生动
+3. 修正语病和不通顺的表达
+4. 保持原文的叙事风格和节奏
+5. 直接输出润色后的文字，不要加任何说明或解释
+6. 段落之间用空行分隔`
+
+  let result = ''
+
+  await streamChat(
+    {
+      systemPrompt,
+      messages: [{ role: 'user', content: `请润色以下段落：\n\n${plainContent}` }],
+      temperature: 0.7,
+      skillName: 'writer',
+    },
+    {
+      onChunk(chunk) { result += chunk },
+      onDone() {
+        polishLoading.value = false
+        if (result.trim()) emit('polish', result)
+      },
+      onError(_code, message) {
+        polishLoading.value = false
+        emit('polish', `（润色失败：${message || '请检查模型配置'}）`)
+      },
+    },
+    polishAbort.signal,
+  )
+}
+
+// ── 灵感 ──
+const inspireLoading = ref(false)
+let inspireAbort: AbortController | null = null
+
+async function handleInspire() {
+  if (inspireLoading.value) {
+    inspireAbort?.abort()
+    inspireLoading.value = false
+    return
+  }
+
+  inspireLoading.value = true
+  inspireAbort = new AbortController()
+
+  const workInfo = props.workTitle
+    ? `作品《${props.workTitle}》${props.workGenre ? `，题材：${props.workGenre}` : ''}`
+    : '小说'
+  const chapterInfo = props.chapterTitle ? `当前章节：${props.chapterTitle}` : ''
+  const plainContent = htmlToText(props.chapterContent ?? '').slice(-600)
+
+  const systemPrompt = `你是一位创意无限的小说灵感助手，正在为${workInfo}提供创作灵感。
+请提供 3-5 个具体的创作灵感或建议，包括：
+1. 情节发展方向或转折点
+2. 角色互动的创意场景
+3. 伏笔或悬念的创意设计
+4. 环境描写或氛围营造的建议
+每个灵感要具体、可操作、有画面感，适合直接用于小说创作。`
+
+  const userParts = [chapterInfo, plainContent ? `\n已有内容（参考）：\n${plainContent}` : ''].filter(Boolean)
+
+  let result = ''
+
+  await streamChat(
+    {
+      systemPrompt,
+      messages: [{ role: 'user', content: `请给我一些创作灵感。${userParts.join('\n')}` }],
+      temperature: 0.9,
+      skillName: 'writer',
+    },
+    {
+      onChunk(chunk) { result += chunk },
+      onDone() {
+        inspireLoading.value = false
+        if (result.trim()) emit('inspire', result)
+      },
+      onError(_code, message) {
+        inspireLoading.value = false
+        emit('inspire', `（获取灵感失败：${message || '请检查模型配置'}）`)
+      },
+    },
+    inspireAbort.signal,
   )
 }
 </script>

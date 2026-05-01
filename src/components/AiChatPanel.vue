@@ -60,21 +60,40 @@
           :key="msg.id"
           :class="['acp-msg', msg.role]"
         >
-          <div class="acp-msg-row">
-            <!-- AI 头像 -->
-            <div v-if="msg.role === 'ai'" class="acp-msg-avatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l1.5 3 3.5.5-2.5 2.5.5 3.5L12 10l-3 1.5.5-3.5L7 5.5l3.5-.5L12 2z"/>
-              </svg>
+          <!-- Tool Call 消息 -->
+          <template v-if="msg.role === 'tool'">
+            <div class="acp-tool-card">
+              <div class="acp-tool-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                </svg>
+                <span class="acp-tool-name">{{ msg.toolName || '工具调用' }}</span>
+                <span :class="['acp-tool-status', msg.toolSuccess ? 'success' : 'fail']">
+                  {{ msg.toolSuccess ? '✓' : '✗' }}
+                </span>
+              </div>
+              <div class="acp-tool-body">{{ msg.content }}</div>
             </div>
+          </template>
 
-            <!-- 打字动画 -->
-            <div v-if="msg.typing" class="acp-typing-dots">
-              <span></span><span></span><span></span>
+          <!-- 普通消息 -->
+          <template v-else>
+            <div class="acp-msg-row">
+              <!-- AI 头像 -->
+              <div v-if="msg.role === 'ai'" class="acp-msg-avatar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2l1.5 3 3.5.5-2.5 2.5.5 3.5L12 10l-3 1.5.5-3.5L7 5.5l3.5-.5L12 2z"/>
+                </svg>
+              </div>
+
+              <!-- 打字动画 -->
+              <div v-if="msg.typing" class="acp-typing-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <!-- 消息内容 -->
+              <div v-else class="acp-bubble">{{ msg.content }}</div>
             </div>
-            <!-- 消息内容 -->
-            <div v-else class="acp-bubble">{{ msg.content }}</div>
-          </div>
+          </template>
           <span class="acp-bubble-time">{{ msg.time }}</span>
         </div>
       </template>
@@ -109,10 +128,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onUnmounted } from 'vue'
+import { ref, nextTick, onUnmounted, watch } from 'vue'
 import type { WorkItem } from '@/lib/api'
 import { agentStreamChat, type LLMChatMessage } from '@/lib/api'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
+import { sessionApi } from '@/lib/api/session'
 import '../styles/AiChatPanel.css'
 
 const props = defineProps<{
@@ -135,10 +155,12 @@ const quickPrompts = [
 // ── 消息 ──
 interface ChatMessage {
   id: string
-  role: 'user' | 'ai'
+  role: 'user' | 'ai' | 'tool'
   content: string
   time: string
   typing?: boolean
+  toolName?: string
+  toolSuccess?: boolean
 }
 
 const messages = ref<ChatMessage[]>([])
@@ -146,7 +168,43 @@ const inputText = ref('')
 const isTyping = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const currentSessionId = ref('')
 let abortController: AbortController | null = null
+
+async function loadSessionHistory(workId: string) {
+  if (!workId) return
+  try {
+    const sessionResult = await sessionApi.getActive(workId)
+    const session = sessionResult.data
+    if (!session?.sessionId) {
+      currentSessionId.value = ''
+      return
+    }
+    currentSessionId.value = session.sessionId
+    const msgResult = await sessionApi.getMessages(session.sessionId, 200)
+    const historyMessages = msgResult.data ?? []
+    if (historyMessages.length === 0) return
+
+    const mapped: ChatMessage[] = historyMessages.map(m => ({
+      id: m.id,
+      role: m.role === 'assistant' ? 'ai' as const
+           : m.role === 'tool' ? 'tool' as const
+           : 'user' as const,
+      content: m.content,
+      time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      toolName: m.toolName || undefined,
+      toolSuccess: m.toolSuccess ?? undefined,
+    }))
+    messages.value = mapped
+    nextTick(scrollToBottom)
+  } catch { /* no active session, start fresh */ }
+}
+
+watch(() => props.work?.id, (workId) => {
+  messages.value = []
+  currentSessionId.value = ''
+  if (workId) loadSessionHistory(workId)
+}, { immediate: true })
 
 // ── 拖拽调宽 ──
 const MIN_WIDTH = 240
@@ -200,7 +258,7 @@ function buildSystemPrompt(): string {
 // ── 构建对话历史供 Agent 使用 ──
 function buildConversationHistory(): LLMChatMessage[] {
   return messages.value
-    .filter(m => !m.typing && m.content)
+    .filter(m => !m.typing && m.content && m.role !== 'tool')
     .map(m => ({
       role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
       content: m.content,
@@ -272,6 +330,23 @@ async function sendMessage(text: string) {
             content: accumulatedText,
             typing: false,
           }
+        }
+        scrollToBottom()
+      },
+      onToolResult(info) {
+        const toolMsg: ChatMessage = {
+          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          role: 'tool',
+          content: info.content.slice(0, 300),
+          time: nowTime(),
+          toolName: info.toolName,
+          toolSuccess: info.success,
+        }
+        const typingIdx = messages.value.findIndex(m => m.id === typingId)
+        if (typingIdx >= 0) {
+          messages.value.splice(typingIdx, 0, toolMsg)
+        } else {
+          messages.value.push(toolMsg)
         }
         scrollToBottom()
       },

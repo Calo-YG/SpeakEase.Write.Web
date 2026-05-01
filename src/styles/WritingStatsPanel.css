@@ -1,0 +1,183 @@
+.stats-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--editor-bg, #fff);
+  border-left: 1px solid var(--editor-border, #e5e7eb);
+}
+
+.stats-header {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 0.875rem;
+  border-bottom: 1px solid var(--editor-border, #e5e7eb);
+  flex-shrink: 0;
+}
+.stats-header h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--editor-text, #111827);
+}
+
+.stats-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--editor-muted, #9ca3af);
+  font-size: 0.8rem;
+}
+
+.stats-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+.stats-body::-webkit-scrollbar { width: 3px; }
+.stats-body::-webkit-scrollbar-thumb { background: var(--editor-border, #e5e7eb); border-radius: 2px; }
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.stats-card {
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--editor-text, #111827) 3%, var(--editor-bg, #fff));
+  border: 1px solid var(--editor-border, #e5e7eb);
+}
+.stats-card.accent {
+  background: color-mix(in srgb, var(--editor-accent, #4f46e5) 6%, var(--editor-bg, #fff));
+  border-color: color-mix(in srgb, var(--editor-accent, #4f46e5) 15%, var(--editor-border, #e5e7eb));
+}
+.stats-card-value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--editor-text, #111827);
+  line-height: 1.2;
+}
+.stats-card.accent .stats-card-value {
+  color: var(--editor-accent, #4f46e5);
+}
+.stats-card-label {
+  font-size: 0.68rem;
+  color: var(--editor-muted, #6b7280);
+  margin-top: 0.15rem;
+}
+
+.stats-section {
+  margin-bottom: 1rem;
+}
+.stats-section-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--editor-muted, #6b7280);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.stats-status-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--editor-border, #e5e7eb);
+  gap: 1px;
+}
+.stats-status-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #fff;
+  min-width: 0;
+  overflow: hidden;
+}
+.stats-status-segment span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.25rem;
+}
+.stats-status-segment.published { background: #10b981; }
+.stats-status-segment.writing { background: #f59e0b; }
+.stats-status-segment.draft { background: #9ca3af; }
+
+.stats-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+  padding-bottom: 16px;
+  position: relative;
+  overflow-x: auto;
+}
+.stats-chart::-webkit-scrollbar { height: 3px; }
+.stats-chart::-webkit-scrollbar-thumb { background: var(--editor-border, #e5e7eb); border-radius: 2px; }
+
+.stats-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: 16px;
+}
+.stats-bar {
+  width: 12px;
+  border-radius: 3px 3px 0 0;
+  background: var(--editor-accent, #4f46e5);
+  transition: height 0.3s ease;
+}
+.stats-bar.published { background: #10b981; }
+.stats-bar.writing { background: #f59e0b; }
+.stats-bar.draft { background: #9ca3af; }
+.stats-bar-label {
+  font-size: 0.55rem;
+  color: var(--editor-muted, #9ca3af);
+  margin-top: 2px;
+  text-align: center;
+}
+
+.stats-extremes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.stats-extreme {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--editor-text, #111827) 3%, var(--editor-bg, #fff));
+  border: 1px solid var(--editor-border, #e5e7eb);
+}
+.stats-extreme-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--editor-muted, #6b7280);
+  flex-shrink: 0;
+  width: 24px;
+}
+.stats-extreme-name {
+  font-size: 0.75rem;
+  color: var(--editor-text, #374151);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-extreme-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--editor-accent, #4f46e5);
+  flex-shrink: 0;
+}

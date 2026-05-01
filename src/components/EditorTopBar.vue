@@ -75,11 +75,32 @@
         </svg>
         保存
       </button>
+      <!-- 导出 -->
+      <div class="etb-export-wrapper">
+        <button class="etb-icon-btn" title="导出作品" @click="toggleExport">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <div v-if="showExport" class="etb-export-dropdown">
+          <button class="etb-export-item" @click="$emit('export-txt'); closeExport()">
+            <span class="etb-export-icon">TXT</span>
+            <span>导出为纯文本</span>
+          </button>
+          <button class="etb-export-item" @click="$emit('export-epub'); closeExport()">
+            <span class="etb-export-icon">EPUB</span>
+            <span>导出为电子书</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import '../styles/EditorTopBar.css'
 
 defineProps<{
@@ -92,10 +113,22 @@ defineProps<{
   showSettings: boolean
 }>()
 
+const showExport = ref(false)
+
+function toggleExport() {
+  showExport.value = !showExport.value
+}
+
+function closeExport() {
+  showExport.value = false
+}
+
 defineEmits<{
   back: []
   save: []
   settings: []
   'toggle-fullscreen': []
+  'export-txt': []
+  'export-epub': []
 }>()
 </script>

@@ -8,6 +8,7 @@ import type { ApiResult } from './types'
 export interface ChapterItem {
   id: string
   workId: string
+  volumeId: string
   title: string
   sequence: number
   wordCount: number

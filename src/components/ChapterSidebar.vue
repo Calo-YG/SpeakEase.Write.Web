@@ -43,23 +43,53 @@
     <!-- 展开时：章节列表 -->
     <template v-else>
       <div class="chapter-list">
-        <div
-          v-for="ch in chapters"
-          :key="ch.id"
-          :class="['chapter-item', { active: ch.id === activeChapterId }]"
-          @click="$emit('select', ch)"
-        >
-          <div class="ch-header">
-            <span class="ch-title">{{ ch.title }}</span>
-            <span v-if="ch.badge" :class="['ch-badge', `ch-badge-${ch.badge}`]">
-              {{ badgeLabel(ch.badge) }}
-            </span>
+        <!-- 有分卷时按卷分组显示 -->
+        <template v-if="hasVolumes">
+          <div v-for="group in groupedChapters" :key="group.volumeId || '__unassigned'" class="ch-volume-group">
+            <div class="ch-volume-header">
+              <span class="ch-volume-name">{{ group.volumeTitle }}</span>
+              <span class="ch-volume-count">{{ group.chapters.length }}</span>
+            </div>
+            <div
+              v-for="ch in group.chapters"
+              :key="ch.id"
+              :class="['chapter-item', { active: ch.id === activeChapterId }]"
+              @click="$emit('select', ch)"
+            >
+              <div class="ch-header">
+                <span class="ch-title">{{ ch.title }}</span>
+                <span v-if="ch.badge" :class="['ch-badge', `ch-badge-${ch.badge}`]">
+                  {{ badgeLabel(ch.badge) }}
+                </span>
+              </div>
+              <div class="ch-meta">
+                <span v-if="ch.wordCount" class="ch-words">{{ ch.wordCount.toLocaleString() }}字</span>
+                <span v-if="ch.note" class="ch-note">{{ ch.note }}</span>
+              </div>
+            </div>
           </div>
-          <div class="ch-meta">
-            <span v-if="ch.wordCount" class="ch-words">{{ ch.wordCount.toLocaleString() }}字</span>
-            <span v-if="ch.note" class="ch-note">{{ ch.note }}</span>
+        </template>
+
+        <!-- 无分卷时平铺显示 -->
+        <template v-else>
+          <div
+            v-for="ch in chapters"
+            :key="ch.id"
+            :class="['chapter-item', { active: ch.id === activeChapterId }]"
+            @click="$emit('select', ch)"
+          >
+            <div class="ch-header">
+              <span class="ch-title">{{ ch.title }}</span>
+              <span v-if="ch.badge" :class="['ch-badge', `ch-badge-${ch.badge}`]">
+                {{ badgeLabel(ch.badge) }}
+              </span>
+            </div>
+            <div class="ch-meta">
+              <span v-if="ch.wordCount" class="ch-words">{{ ch.wordCount.toLocaleString() }}字</span>
+              <span v-if="ch.note" class="ch-note">{{ ch.note }}</span>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
 
       <!-- 底部新建 -->
@@ -77,20 +107,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import '../styles/ChapterSidebar.css'
 
 export interface ChapterItem {
   id: string
   title: string
   wordCount?: number
+  volumeId?: string
   badge?: 'draft' | 'published' | 'review'
   note?: string
 }
 
-defineProps<{
+export interface VolumeInfo {
+  id: string
+  title: string
+}
+
+const props = defineProps<{
   chapters: ChapterItem[]
   activeChapterId: string
+  volumes?: VolumeInfo[]
 }>()
 
 defineEmits<{
@@ -104,4 +141,32 @@ function badgeLabel(badge: string): string {
   const map: Record<string, string> = { draft: '草稿', published: '已发布', review: '审核中' }
   return map[badge] ?? badge
 }
+
+interface ChapterGroup {
+  volumeId: string
+  volumeTitle: string
+  chapters: ChapterItem[]
+}
+
+const groupedChapters = computed<ChapterGroup[]>(() => {
+  if (!props.volumes || props.volumes.length === 0) {
+    return [{ volumeId: '', volumeTitle: '', chapters: props.chapters }]
+  }
+  const groups: ChapterGroup[] = []
+  for (const vol of props.volumes) {
+    const volChapters = props.chapters.filter(c => c.volumeId === vol.id)
+    if (volChapters.length > 0) {
+      groups.push({ volumeId: vol.id, volumeTitle: vol.title, chapters: volChapters })
+    }
+  }
+  const unassigned = props.chapters.filter(
+    c => !c.volumeId || !props.volumes!.some(v => v.id === c.volumeId)
+  )
+  if (unassigned.length > 0) {
+    groups.push({ volumeId: '', volumeTitle: '未分组', chapters: unassigned })
+  }
+  return groups
+})
+
+const hasVolumes = computed(() => (props.volumes?.length ?? 0) > 0)
 </script>
