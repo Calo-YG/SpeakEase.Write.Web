@@ -18,7 +18,7 @@ export interface AgentChatRequest {
 }
 
 export interface AgentStreamEvent {
-  type: 'content' | 'tool_call' | 'tool_result' | 'done' | 'error'
+  type: 'content' | 'tool_call' | 'tool_result' | 'meta' | 'done' | 'error'
   content?: string | null
   toolCallDelta?: LLMToolCallDelta | null
   toolResult?: LLMToolExecutionResult | null
@@ -31,6 +31,12 @@ export interface AgentStreamEvent {
   } | null
 }
 
+export interface ContextCompressedMeta {
+  stage: 'context_compressed'
+  originalCount: number
+  compressedCount: number
+}
+
 export interface AgentSkillSummary {
   name: string
   description: string
@@ -39,6 +45,7 @@ export interface AgentSkillSummary {
 export interface AgentStreamCallbacks {
   onChunk?: (text: string) => void
   onToolResult?: (result: LLMToolExecutionResult) => void
+  onMeta?: (data: Record<string, unknown>) => void
   onDone?: (finalResponse: AgentStreamEvent['finalResponse']) => void
   onError?: (code: string, message: string) => void
 }
@@ -104,6 +111,11 @@ export async function agentStreamChat(
               break
             case 'tool_result':
               if (event.toolResult) callbacks.onToolResult?.(event.toolResult)
+              break
+            case 'meta':
+              if (event.content) {
+                try { callbacks.onMeta?.(JSON.parse(event.content)) } catch { /* skip */ }
+              }
               break
             case 'done':
               callbacks.onDone?.(event.finalResponse)
