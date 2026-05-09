@@ -19,6 +19,7 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── 右侧面板过渡动画 ── */
@@ -246,11 +247,9 @@
 .editor-right-panels {
   display: flex;
   flex-direction: column;
-  min-width: 300px;
-  max-width: 360px;
-  border-left: 1px solid var(--editor-border, #e5e7eb);
   flex-shrink: 0;
   overflow: hidden;
+  border-left: 1px solid var(--editor-border, #e5e7eb);
 }
 
 .right-tab-bar {
@@ -291,4 +290,40 @@
 .panel-slide-leave-to {
   transform: translateX(40px);
   opacity: 0;
+}
+
+/* ── 编辑区最小宽度保障 ── */
+.editor-main {
+  min-width: 0;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 1200px) {
+  .editor-content-area {
+    padding: 2rem 2rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .editor-right-panels {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+    background: var(--editor-bg, #fff);
+  }
+}
+
+@media (max-width: 768px) {
+  .editor-content-area {
+    padding: 1.5rem 1rem;
+  }
+  .editor-doc-wrapper {
+    max-width: 100%;
+  }
+  .editor-doc-title {
+    font-size: 1.4rem;
+  }
 }

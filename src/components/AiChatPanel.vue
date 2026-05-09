@@ -15,14 +15,22 @@
           <path d="M5 17l1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2z" stroke-width="1.4"/>
         </svg>
         <span class="acp-header-title">AI 对话</span>
-        <span class="acp-header-badge">Beta</span>
+        <span v-if="userMessageCount > 0" class="acp-header-count">{{ userMessageCount }}轮</span>
       </div>
-      <button class="acp-close" @click="$emit('close')" title="关闭">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
+      <div class="acp-header-right">
+        <button v-if="messages.length > 0" class="acp-new-chat" @click="startNewChat" title="新对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <button class="acp-close" @click="$emit('close')" title="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- 快捷指令 -->
@@ -42,6 +50,17 @@
 
     <!-- 消息列表 / 空态 -->
     <div ref="messagesRef" class="acp-messages">
+      <!-- 压缩通知横幅 -->
+      <div v-if="compressNotice" class="acp-compress-notice">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>对话已压缩：{{ compressNotice.originalCount }}条 → {{ compressNotice.compressedCount }}条，旧消息已摘要保留</span>
+        <button class="acp-compress-dismiss" @click="compressNotice = null">×</button>
+      </div>
+
       <!-- 空态 -->
       <div v-if="messages.length === 0" class="acp-empty">
         <div class="acp-empty-icon">
@@ -90,7 +109,11 @@
               <div v-if="msg.typing" class="acp-typing-dots">
                 <span></span><span></span><span></span>
               </div>
-              <!-- 消息内容 -->
+              <!-- AI 消息：Markdown 渲染 -->
+              <div v-else-if="msg.role === 'ai'" class="acp-bubble acp-bubble-md">
+                <MarkdownRenderer :content="msg.content" />
+              </div>
+              <!-- 用户消息：纯文本 -->
               <div v-else class="acp-bubble">{{ msg.content }}</div>
             </div>
           </template>
@@ -128,11 +151,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onUnmounted, watch } from 'vue'
+import { ref, nextTick, onUnmounted, watch, computed } from 'vue'
 import type { WorkItem } from '@/lib/api'
-import { agentStreamChat, type LLMChatMessage } from '@/lib/api'
+import { agentStreamChat, type LLMChatMessage, type ContextCompressedMeta } from '@/lib/api'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
 import { sessionApi } from '@/lib/api/session'
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import '../styles/AiChatPanel.css'
 
 const props = defineProps<{
@@ -169,7 +193,12 @@ const isTyping = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const currentSessionId = ref('')
+const compressNotice = ref<ContextCompressedMeta | null>(null)
 let abortController: AbortController | null = null
+
+const userMessageCount = computed(() =>
+  messages.value.filter(m => m.role === 'user').length
+)
 
 async function loadSessionHistory(workId: string) {
   if (!workId) return
@@ -200,6 +229,17 @@ async function loadSessionHistory(workId: string) {
   } catch { /* no active session, start fresh */ }
 }
 
+async function startNewChat() {
+  if (currentSessionId.value) {
+    try {
+      await sessionApi.cancel(currentSessionId.value)
+    } catch { /* ignore */ }
+  }
+  messages.value = []
+  currentSessionId.value = ''
+  compressNotice.value = null
+}
+
 watch(() => props.work?.id, (workId) => {
   messages.value = []
   currentSessionId.value = ''
@@ -207,9 +247,9 @@ watch(() => props.work?.id, (workId) => {
 }, { immediate: true })
 
 // ── 拖拽调宽 ──
-const MIN_WIDTH = 240
+const MIN_WIDTH = 300
 const MAX_WIDTH = 640
-const panelWidth = ref(320)
+const panelWidth = ref(420)
 
 function onResizeStart(e: MouseEvent) {
   const startX = e.clientX
@@ -275,6 +315,7 @@ async function sendMessage(text: string) {
   // 中断上一次请求
   abortController?.abort()
   abortController = new AbortController()
+  compressNotice.value = null
 
   // 添加用户消息
   messages.value.push({
@@ -349,6 +390,11 @@ async function sendMessage(text: string) {
           messages.value.push(toolMsg)
         }
         scrollToBottom()
+      },
+      onMeta(data) {
+        if (data.stage === 'context_compressed') {
+          compressNotice.value = data as unknown as ContextCompressedMeta
+        }
       },
       onDone() {
         isTyping.value = false
