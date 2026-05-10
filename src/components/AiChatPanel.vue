@@ -343,83 +343,103 @@ async function sendMessage(text: string) {
   scrollToBottom()
 
   let accumulatedText = ''
+  let streamDone = false
 
   const history = buildConversationHistory()
-  // 去掉最后一条（刚加的 user 消息，因为当前输入已单独传入）
   const contextMessages = history.slice(0, -1)
 
   const systemPrompt = buildSystemPrompt()
 
-  await agentStreamChat(
-    {
-      workId: props.work?.id ?? '',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...contextMessages,
-        { role: 'user', content: text.trim() },
-      ],
-      skillName: 'writer',
-      temperature: 0.8,
-    },
-    {
-      onChunk(chunk) {
-        accumulatedText += chunk
-        const idx = messages.value.findIndex(m => m.id === typingId)
-        if (idx !== -1) {
+  try {
+    await agentStreamChat(
+      {
+        workId: props.work?.id ?? '',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...contextMessages,
+          { role: 'user', content: text.trim() },
+        ],
+        skillName: 'writer',
+        temperature: 0.8,
+      },
+      {
+        onChunk(chunk) {
+          accumulatedText += chunk
+          const idx = messages.value.findIndex(m => m.id === typingId)
+          if (idx !== -1) {
+            messages.value[idx] = {
+              ...messages.value[idx],
+              content: accumulatedText,
+              typing: false,
+            }
+          }
+          scrollToBottom()
+        },
+        onToolResult(info) {
+          const toolMsg: ChatMessage = {
+            id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            role: 'tool',
+            content: info.content.slice(0, 300),
+            time: nowTime(),
+            toolName: info.toolName,
+            toolSuccess: info.success,
+          }
+          const typingIdx = messages.value.findIndex(m => m.id === typingId)
+          if (typingIdx >= 0) {
+            messages.value.splice(typingIdx, 0, toolMsg)
+          } else {
+            messages.value.push(toolMsg)
+          }
+          scrollToBottom()
+        },
+        onMeta(data) {
+          if (data.stage === 'context_compressed') {
+            compressNotice.value = data as unknown as ContextCompressedMeta
+          }
+        },
+        onDone() {
+          streamDone = true
+          isTyping.value = false
+          const idx = messages.value.findIndex(m => m.id === typingId)
+          if (idx !== -1 && messages.value[idx].typing) {
+            messages.value[idx] = { ...messages.value[idx], typing: false }
+          }
+        },
+        onError(code, message) {
+          streamDone = true
+          isTyping.value = false
+          const idx = messages.value.findIndex(m => m.id === typingId)
+          if (idx !== -1) {
+            messages.value[idx] = {
+              ...messages.value[idx],
+              content: code === 'auth_expired'
+                ? '认证已过期，请重新登录。'
+                : `AI 回复失败：${message || '请检查模型配置'}`,
+              typing: false,
+            }
+          }
+        },
+      },
+      abortController.signal,
+    )
+  } finally {
+    isTyping.value = false
+    if (!streamDone) {
+      const idx = messages.value.findIndex(m => m.id === typingId)
+      if (idx !== -1) {
+        const bubble = messages.value[idx]
+        if (bubble.typing) {
+          messages.value.splice(idx, 1)
+        } else if (!bubble.content) {
           messages.value[idx] = {
-            ...messages.value[idx],
-            content: accumulatedText,
+            ...bubble,
+            content: accumulatedText || '连接中断，请重试。',
             typing: false,
           }
         }
-        scrollToBottom()
-      },
-      onToolResult(info) {
-        const toolMsg: ChatMessage = {
-          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          role: 'tool',
-          content: info.content.slice(0, 300),
-          time: nowTime(),
-          toolName: info.toolName,
-          toolSuccess: info.success,
-        }
-        const typingIdx = messages.value.findIndex(m => m.id === typingId)
-        if (typingIdx >= 0) {
-          messages.value.splice(typingIdx, 0, toolMsg)
-        } else {
-          messages.value.push(toolMsg)
-        }
-        scrollToBottom()
-      },
-      onMeta(data) {
-        if (data.stage === 'context_compressed') {
-          compressNotice.value = data as unknown as ContextCompressedMeta
-        }
-      },
-      onDone() {
-        isTyping.value = false
-        // 确保最终 typing 状态已清除
-        const idx = messages.value.findIndex(m => m.id === typingId)
-        if (idx !== -1 && messages.value[idx].typing) {
-          messages.value[idx] = { ...messages.value[idx], typing: false }
-        }
-      },
-      onError(code, message) {
-        isTyping.value = false
-        const idx = messages.value.findIndex(m => m.id === typingId)
-        if (idx !== -1) {
-          messages.value[idx] = {
-            ...messages.value[idx],
-            content: code === 'auth_expired'
-              ? '认证已过期，请重新登录。'
-              : `AI 回复失败：${message || '请检查模型配置'}`,
-            typing: false,
-          }
-        }
-      },
-    },
-    abortController.signal,
-  )
+      }
+    }
+  }
 }
 
 async function handleSend() {

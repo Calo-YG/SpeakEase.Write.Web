@@ -92,41 +92,66 @@ export async function agentStreamChat(
     if (done) break
     buffer += decoder.decode(value, { stream: true })
 
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
+    let sepIdx: number
+    while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+      const rawEvent = buffer.slice(0, sepIdx)
+      buffer = buffer.slice(sepIdx + 2)
 
-    let eventType = ''
-    for (const line of lines) {
-      if (line.startsWith('event: ')) {
-        eventType = line.slice(7).trim()
-      } else if (line.startsWith('data: ')) {
-        const json = line.slice(6)
-        if (!json.trim()) continue
-        try {
-          const event: AgentStreamEvent = JSON.parse(json)
-          const type = eventType || event.type
-          switch (type) {
-            case 'content':
-              if (event.content) callbacks.onChunk?.(event.content)
-              break
-            case 'tool_result':
-              if (event.toolResult) callbacks.onToolResult?.(event.toolResult)
-              break
-            case 'meta':
-              if (event.content) {
-                try { callbacks.onMeta?.(JSON.parse(event.content)) } catch { /* skip */ }
-              }
-              break
-            case 'done':
-              callbacks.onDone?.(event.finalResponse)
-              break
-            case 'error':
-              callbacks.onError?.('agent_error', 'Agent 执行错误')
-              break
-          }
-        } catch { /* skip */ }
-        eventType = ''
+      let eventType = ''
+      let dataLine = ''
+      for (const line of rawEvent.split('\n')) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          dataLine += (dataLine ? '\n' : '') + line.slice(6)
+        }
       }
+
+      if (!dataLine.trim()) continue
+
+      try {
+        const event: AgentStreamEvent = JSON.parse(dataLine)
+        const type = eventType || event.type
+        switch (type) {
+          case 'content':
+            if (event.content) callbacks.onChunk?.(event.content)
+            break
+          case 'tool_call':
+            break
+          case 'tool_result':
+            if (event.toolResult) callbacks.onToolResult?.(event.toolResult)
+            break
+          case 'meta':
+            if (event.content) {
+              try { callbacks.onMeta?.(JSON.parse(event.content)) } catch { /* skip */ }
+            }
+            break
+          case 'done':
+            callbacks.onDone?.(event.finalResponse)
+            break
+          case 'error':
+            callbacks.onError?.('agent_error', event.content || 'Agent 执行错误')
+            break
+        }
+      } catch { /* skip malformed JSON */ }
+    }
+  }
+
+  if (buffer.trim()) {
+    let eventType = ''
+    let dataLine = ''
+    for (const line of buffer.split('\n')) {
+      if (line.startsWith('event: ')) eventType = line.slice(7).trim()
+      else if (line.startsWith('data: ')) dataLine += (dataLine ? '\n' : '') + line.slice(6)
+    }
+    if (dataLine.trim()) {
+      try {
+        const event: AgentStreamEvent = JSON.parse(dataLine)
+        const type = eventType || event.type
+        if (type === 'content' && event.content) callbacks.onChunk?.(event.content)
+        else if (type === 'done') callbacks.onDone?.(event.finalResponse)
+        else if (type === 'error') callbacks.onError?.('agent_error', event.content || 'Agent 执行错误')
+      } catch { /* skip */ }
     }
   }
 }
