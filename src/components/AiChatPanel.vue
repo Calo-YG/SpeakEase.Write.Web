@@ -18,7 +18,13 @@
         <span v-if="userMessageCount > 0" class="acp-header-count">{{ userMessageCount }}轮</span>
       </div>
       <div class="acp-header-right">
-        <button v-if="messages.length > 0" class="acp-new-chat" @click="startNewChat" title="新对话">
+        <button class="acp-history-btn" :class="{ active: showHistory }" @click="toggleHistory" title="历史会话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+        <button v-if="!showHistory && messages.length > 0" class="acp-new-chat" @click="startNewChat" title="新对话">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -34,7 +40,7 @@
     </div>
 
     <!-- 快捷指令 -->
-    <div class="acp-quick">
+    <div v-if="!showHistory" class="acp-quick">
       <button
         v-for="q in quickPrompts"
         :key="q.text"
@@ -48,8 +54,40 @@
       </button>
     </div>
 
+    <!-- 历史会话列表 -->
+    <div v-if="showHistory" class="acp-history">
+      <div v-if="historyLoading" class="acp-history-loading">
+        <div class="acp-typing-dots"><span></span><span></span><span></span></div>
+      </div>
+      <div v-else-if="historySessions.length === 0" class="acp-history-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>暂无历史会话</span>
+      </div>
+      <template v-else>
+        <div
+          v-for="s in historySessions"
+          :key="s.sessionId"
+          :class="['acp-history-item', { active: s.sessionId === currentSessionId, viewing: s.sessionId === viewingSessionId }]"
+          @click="viewSession(s.sessionId)"
+        >
+          <div class="acp-history-item-main">
+            <span class="acp-history-item-status" :class="s.status">{{ statusLabel(s.status) }}</span>
+            <span class="acp-history-item-time">{{ formatSessionTime(s.startedAt) }}</span>
+          </div>
+          <div class="acp-history-item-sub">
+            <span>{{ s.turnCount }}轮对话</span>
+            <span v-if="s.closeReason" class="acp-history-item-reason">{{ closeReasonLabel(s.closeReason) }}</span>
+          </div>
+        </div>
+      </template>
+    </div>
+
     <!-- 消息列表 / 空态 -->
-    <div ref="messagesRef" class="acp-messages">
+    <div v-show="!showHistory" ref="messagesRef" class="acp-messages">
       <!-- 压缩通知横幅 -->
       <div v-if="compressNotice" class="acp-compress-notice">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -122,8 +160,14 @@
       </template>
     </div>
 
+    <!-- 查看历史中横幅 -->
+    <div v-if="viewingSessionId && viewingSessionId !== currentSessionId" class="acp-history-banner">
+      <span>正在查看历史会话</span>
+      <button class="acp-history-back-btn" @click="backToCurrent">返回当前</button>
+    </div>
+
     <!-- 输入区 -->
-    <div class="acp-input-area">
+    <div class="acp-input-area" :class="{ disabled: !!viewingSessionId && viewingSessionId !== currentSessionId }">
       <div class="acp-input-row">
         <textarea
           ref="textareaRef"
@@ -131,6 +175,7 @@
           class="acp-textarea"
           placeholder="输入你的想法，按 Enter 发送…"
           rows="1"
+          :disabled="!!viewingSessionId && viewingSessionId !== currentSessionId"
           @keydown.enter.exact.prevent="handleSend"
           @input="autoResize"
         ></textarea>
@@ -156,6 +201,7 @@ import type { WorkItem } from '@/lib/api'
 import { agentStreamChat, type LLMChatMessage, type ContextCompressedMeta } from '@/lib/api'
 import type { ChapterItem } from '@/components/ChapterSidebar.vue'
 import { sessionApi } from '@/lib/api/session'
+import type { SessionInfo } from '@/lib/api/session'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import '../styles/AiChatPanel.css'
 
@@ -195,6 +241,13 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const currentSessionId = ref('')
 const compressNotice = ref<ContextCompressedMeta | null>(null)
 let abortController: AbortController | null = null
+
+// ── 历史会话 ──
+const showHistory = ref(false)
+const historySessions = ref<SessionInfo[]>([])
+const historyLoading = ref(false)
+const viewingSessionId = ref('')
+let cachedCurrentMessages: ChatMessage[] = []
 
 const userMessageCount = computed(() =>
   messages.value.filter(m => m.role === 'user').length
@@ -238,6 +291,81 @@ async function startNewChat() {
   messages.value = []
   currentSessionId.value = ''
   compressNotice.value = null
+  viewingSessionId.value = ''
+  showHistory.value = false
+}
+
+async function toggleHistory() {
+  if (showHistory.value) {
+    showHistory.value = false
+    return
+  }
+  showHistory.value = true
+  historyLoading.value = true
+  try {
+    const workId = props.work?.id
+    if (!workId) return
+    const result = await sessionApi.list(workId)
+    historySessions.value = result.data ?? []
+  } catch { historySessions.value = [] }
+  finally { historyLoading.value = false }
+}
+
+async function viewSession(sessionId: string) {
+  if (sessionId === currentSessionId.value) {
+    showHistory.value = false
+    viewingSessionId.value = ''
+    messages.value = cachedCurrentMessages
+    return
+  }
+  if (!viewingSessionId.value || viewingSessionId.value === currentSessionId.value) {
+    cachedCurrentMessages = [...messages.value]
+  }
+  viewingSessionId.value = sessionId
+  showHistory.value = false
+  try {
+    const msgResult = await sessionApi.getMessages(sessionId, 200)
+    const historyMessages = msgResult.data ?? []
+    const mapped: ChatMessage[] = historyMessages.map(m => ({
+      id: m.id,
+      role: m.role === 'assistant' ? 'ai' as const
+           : m.role === 'tool' ? 'tool' as const
+           : 'user' as const,
+      content: m.content,
+      time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+      toolName: m.toolName || undefined,
+      toolSuccess: m.toolSuccess ?? undefined,
+    }))
+    messages.value = mapped
+    nextTick(scrollToBottom)
+  } catch { /* ignored */ }
+}
+
+function backToCurrent() {
+  viewingSessionId.value = ''
+  messages.value = cachedCurrentMessages
+}
+
+function formatSessionTime(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return '刚刚'
+  if (diffMin < 60) return `${diffMin}分钟前`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}小时前`
+  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function statusLabel(status: string): string {
+  const map: Record<string, string> = { active: '进行中', paused: '已暂停', closed: '已结束', cancelled: '已取消', expired: '已过期' }
+  return map[status] ?? status
+}
+
+function closeReasonLabel(reason: string): string {
+  const map: Record<string, string> = { archive_turns_limit: '自动归档', timeout: '超时', error: '错误', user_cancel: '用户取消' }
+  return map[reason] ?? reason
 }
 
 watch(() => props.work?.id, (workId) => {
