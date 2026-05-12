@@ -149,6 +149,18 @@
               </div>
               <!-- AI 消息：Markdown 渲染 -->
               <div v-else-if="msg.role === 'ai'" class="acp-bubble acp-bubble-md">
+                <details v-if="msg.reasoningContent" class="acp-reasoning">
+                  <summary class="acp-reasoning-summary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="acp-reasoning-icon">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="16" x2="12" y2="12"/>
+                      <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <span>思考过程</span>
+                    <span class="acp-reasoning-count">{{ msg.reasoningContent.length }}字</span>
+                  </summary>
+                  <div class="acp-reasoning-body">{{ msg.reasoningContent }}</div>
+                </details>
                 <MarkdownRenderer :content="msg.content" />
               </div>
               <!-- 用户消息：纯文本 -->
@@ -227,6 +239,7 @@ interface ChatMessage {
   id: string
   role: 'user' | 'ai' | 'tool'
   content: string
+  reasoningContent: string
   time: string
   typing?: boolean
   toolName?: string
@@ -273,6 +286,7 @@ async function loadSessionHistory(workId: string) {
            : m.role === 'tool' ? 'tool' as const
            : 'user' as const,
       content: m.content,
+      reasoningContent: '',
       time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       toolName: m.toolName || undefined,
       toolSuccess: m.toolSuccess ?? undefined,
@@ -332,6 +346,7 @@ async function viewSession(sessionId: string) {
            : m.role === 'tool' ? 'tool' as const
            : 'user' as const,
       content: m.content,
+      reasoningContent: '',
       time: new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
       toolName: m.toolName || undefined,
       toolSuccess: m.toolSuccess ?? undefined,
@@ -450,6 +465,7 @@ async function sendMessage(text: string) {
     id: `u-${Date.now()}`,
     role: 'user',
     content: text.trim(),
+    reasoningContent: '',
     time: nowTime(),
   })
 
@@ -463,6 +479,7 @@ async function sendMessage(text: string) {
     id: typingId,
     role: 'ai',
     content: '',
+    reasoningContent: '',
     time: nowTime(),
     typing: true,
   })
@@ -503,11 +520,23 @@ async function sendMessage(text: string) {
           }
           scrollToBottom()
         },
+        onReasoning(text) {
+          const idx = messages.value.findIndex(m => m.id === typingId)
+          if (idx !== -1) {
+            messages.value[idx] = {
+              ...messages.value[idx],
+              reasoningContent: messages.value[idx].reasoningContent + text,
+              typing: false,
+            }
+          }
+          scrollToBottom()
+        },
         onToolResult(info) {
           const toolMsg: ChatMessage = {
             id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             role: 'tool',
             content: info.content.slice(0, 300),
+            reasoningContent: '',
             time: nowTime(),
             toolName: info.toolName,
             toolSuccess: info.success,
@@ -525,12 +554,20 @@ async function sendMessage(text: string) {
             compressNotice.value = data as unknown as ContextCompressedMeta
           }
         },
-        onDone() {
+        onDone(finalResponse) {
           streamDone = true
           isTyping.value = false
           const idx = messages.value.findIndex(m => m.id === typingId)
-          if (idx !== -1 && messages.value[idx].typing) {
-            messages.value[idx] = { ...messages.value[idx], typing: false }
+          if (idx !== -1) {
+            const msg = messages.value[idx]
+            if (msg.typing || (!msg.content && finalResponse?.content)) {
+              messages.value[idx] = {
+                ...msg,
+                content: finalResponse?.content || msg.content,
+                reasoningContent: finalResponse?.reasoningContent || msg.reasoningContent,
+                typing: false,
+              }
+            }
           }
         },
         onError(code, message) {

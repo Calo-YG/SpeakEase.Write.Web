@@ -18,12 +18,13 @@ export interface AgentChatRequest {
 }
 
 export interface AgentStreamEvent {
-  type: 'content' | 'tool_call' | 'tool_result' | 'meta' | 'done' | 'error'
+  type: 'content' | 'tool_call' | 'tool_result' | 'meta' | 'done' | 'error' | 'reasoning'
   content?: string | null
   toolCallDelta?: LLMToolCallDelta | null
   toolResult?: LLMToolExecutionResult | null
   finalResponse?: {
     content: string
+    reasoningContent: string
     model: string
     iterations: number
     stopReason: string
@@ -44,6 +45,7 @@ export interface AgentSkillSummary {
 
 export interface AgentStreamCallbacks {
   onChunk?: (text: string) => void
+  onReasoning?: (text: string) => void
   onToolResult?: (result: LLMToolExecutionResult) => void
   onMeta?: (data: Record<string, unknown>) => void
   onDone?: (finalResponse: AgentStreamEvent['finalResponse']) => void
@@ -116,6 +118,9 @@ export async function agentStreamChat(
           case 'content':
             if (event.content) callbacks.onChunk?.(event.content)
             break
+          case 'reasoning':
+            if (event.content) callbacks.onReasoning?.(event.content)
+            break
           case 'tool_call':
             break
           case 'tool_result':
@@ -149,6 +154,7 @@ export async function agentStreamChat(
         const event: AgentStreamEvent = JSON.parse(dataLine)
         const type = eventType || event.type
         if (type === 'content' && event.content) callbacks.onChunk?.(event.content)
+        else if (type === 'reasoning' && event.content) callbacks.onReasoning?.(event.content)
         else if (type === 'done') callbacks.onDone?.(event.finalResponse)
         else if (type === 'error') callbacks.onError?.('agent_error', event.content || 'Agent 执行错误')
       } catch { /* skip */ }
