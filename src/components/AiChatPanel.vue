@@ -416,28 +416,6 @@ function onResizeStart(e: MouseEvent) {
   document.addEventListener('mouseup', onUp)
 }
 
-// ── 构建系统提示（携带作品/章节上下文）──
-function buildSystemPrompt(): string {
-  const parts: string[] = [
-    '你是一位专业的AI写作助手，擅长中文网络小说创作，包括玄幻、仙侠、都市、科幻等多种题材。',
-  ]
-  if (props.work) {
-    parts.push(`\n当前用户正在创作的作品：《${props.work.title}》，题材：${props.work.genre || '未设定'}。`)
-  }
-  if (props.chapter) {
-    parts.push(`当前章节：${props.chapter.title}`)
-  }
-  if (props.chapterContent) {
-    // 只取前1500字，避免超出上下文限制
-    const plainText = props.chapterContent.replace(/<[^>]+>/g, '').slice(0, 1500)
-    if (plainText.trim()) {
-      parts.push(`\n当前章节内容（节选）：\n${plainText}`)
-    }
-  }
-  parts.push('\n请基于以上创作背景，用简洁、专业的方式帮助用户。给出具体的写作建议时，风格需与作品保持一致。')
-  return parts.join('')
-}
-
 // ── 构建对话历史供 Agent 使用 ──
 function buildConversationHistory(): LLMChatMessage[] {
   return messages.value
@@ -493,14 +471,11 @@ async function sendMessage(text: string) {
   const history = buildConversationHistory()
   const contextMessages = history.slice(0, -1)
 
-  const systemPrompt = buildSystemPrompt()
-
   try {
     await agentStreamChat(
       {
         workId: props.work?.id ?? '',
         messages: [
-          { role: 'system', content: systemPrompt },
           ...contextMessages,
           { role: 'user', content: text.trim() },
         ],
