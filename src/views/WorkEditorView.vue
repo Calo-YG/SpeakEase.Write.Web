@@ -39,6 +39,7 @@
           :show-timeline="rightPanel === 'timeline'"
           :show-volumes="rightPanel === 'volumes'"
           :show-inspiration="rightPanel === 'inspiration'"
+          :show-graph="rightPanel === 'graph'"
           :work-title="work?.title"
           :work-genre="work?.genre"
           :chapter-title="activeChapter?.title"
@@ -54,6 +55,7 @@
           @toggle-foreshadowing="rightPanel = rightPanel === 'foreshadowing' ? '' : 'foreshadowing'"
           @toggle-timeline="rightPanel = rightPanel === 'timeline' ? '' : 'timeline'"
           @toggle-inspiration="rightPanel = rightPanel === 'inspiration' ? '' : 'inspiration'"
+          @toggle-graph="rightPanel = rightPanel === 'graph' ? '' : 'graph'"
         />
 
         <!-- 内容区 -->
@@ -154,6 +156,10 @@
             v-else-if="rightPanel === 'inspiration'"
             :work-id="work?.id ?? ''"
           />
+          <CharacterGraphView
+            v-else-if="rightPanel === 'graph'"
+            :work-id="work?.id ?? ''"
+          />
           <VersionDiffPanel
             v-else-if="rightPanel === 'version'"
             :work-id="props.work?.id ?? ''"
@@ -232,6 +238,7 @@ import OutlinePanel from '@/components/OutlinePanel.vue'
 import ForeshadowingPanel from '@/components/ForeshadowingPanel.vue'
 import TimelinePanel from '@/components/TimelinePanel.vue'
 import InspirationPanel from '@/components/InspirationPanel.vue'
+import CharacterGraphView from '@/components/CharacterGraphView.vue'
 import EditorSettingsPanel from '@/components/EditorSettingsPanel.vue'
 import type { EditorSettings } from '@/components/EditorSettingsPanel.vue'
 import VersionDiffPanel from '@/components/VersionDiffPanel.vue'

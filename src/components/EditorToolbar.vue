@@ -134,6 +134,17 @@
         </svg>
         灵感
       </button>
+      <button :class="['etool-btn', 'side', { active: showGraph }]" @click="$emit('toggle-graph')" title="角色关系图谱">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="5" r="3"/>
+          <circle cx="5" cy="19" r="3"/>
+          <circle cx="19" cy="19" r="3"/>
+          <line x1="10.5" y1="7.5" x2="6.5" y2="16.5"/>
+          <line x1="13.5" y1="7.5" x2="17.5" y2="16.5"/>
+          <line x1="8" y1="19" x2="16" y2="19"/>
+        </svg>
+        图谱
+      </button>
     </div>
   </div>
 </template>
@@ -151,6 +162,7 @@ const props = defineProps<{
   showForeshadowing: boolean
   showTimeline: boolean
   showInspiration: boolean
+  showGraph: boolean
   // 由 WorkEditorView 传入的当前章节上下文
   chapterTitle?: string
   chapterContent?: string
@@ -170,6 +182,7 @@ const emit = defineEmits<{
   'toggle-foreshadowing': []
   'toggle-timeline': []
   'toggle-inspiration': []
+  'toggle-graph': []
 }>()
 
 // ── 模式 ──

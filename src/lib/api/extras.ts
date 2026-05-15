@@ -113,3 +113,53 @@ export const adoptionApi = {
   discard: (sessionId: string) =>
     apiClient<ApiResult<null>>(`/api/creation/adopt/${sessionId}/discard`, { method: 'POST' }),
 }
+
+// ── 角色关系图谱 ──
+export interface CharacterGraphItem {
+  id: string; workId: string; name: string; description: string
+  version: number; status: string; layoutJson: string
+  nodes: CharacterGraphNode[]; edges: CharacterGraphEdge[]; createdAt: string
+}
+export interface CharacterGraphNode {
+  id: string; characterId: string; displayName: string
+  nodeType: string; importance: number; x: number; y: number; styleJson: string
+}
+export interface CharacterGraphEdge {
+  id: string; sourceNodeId: string; targetNodeId: string
+  relationType: string; label: string; weight: number; direction: string
+}
+export interface SaveCharacterGraphRequest { name: string; description?: string; layoutJson?: string }
+export interface UpdateGraphLayoutRequest { layoutJson: string }
+export const graphApi = {
+  list: (workId: string) => apiClient<ApiResult<CharacterGraphItem[]>>(`/api/works/${workId}/graphs`),
+  getDetail: (workId: string, graphId: string) => apiClient<ApiResult<CharacterGraphItem>>(`/api/works/${workId}/graphs/${graphId}`),
+  create: (workId: string, req: SaveCharacterGraphRequest) =>
+    apiClient<ApiResult<CharacterGraphItem>>(`/api/works/${workId}/graphs`, { method: 'POST', body: JSON.stringify(req) }),
+  delete: (workId: string, graphId: string) =>
+    apiClient<ApiResult<null>>(`/api/works/${workId}/graphs/${graphId}`, { method: 'DELETE' }),
+  updateLayout: (workId: string, graphId: string, req: UpdateGraphLayoutRequest) =>
+    apiClient<ApiResult<CharacterGraphItem>>(`/api/works/${workId}/graphs/${graphId}/layout`, { method: 'PUT', body: JSON.stringify(req) }),
+}
+
+// ── 角色成长弧线 ──
+export interface CharacterArcItem {
+  id: string; workId: string; characterId: string
+  stageOrder: number; stageTitle: string
+  initialState: string; changedState: string; triggerEvent: string
+}
+export interface SaveCharacterArcRequest {
+  stageOrder: number; stageTitle: string
+  initialState: string; changedState: string; triggerEvent: string
+}
+export const arcApi = {
+  listByCharacter: (workId: string, characterId: string) =>
+    apiClient<ApiResult<CharacterArcItem[]>>(`/api/works/${workId}/characters/${characterId}/arcs`),
+  listAll: (workId: string) =>
+    apiClient<ApiResult<CharacterArcItem[]>>(`/api/works/${workId}/arcs`),
+  create: (workId: string, characterId: string, req: SaveCharacterArcRequest) =>
+    apiClient<ApiResult<CharacterArcItem>>(`/api/works/${workId}/characters/${characterId}/arcs`, { method: 'POST', body: JSON.stringify(req) }),
+  update: (workId: string, characterId: string, arcId: string, req: SaveCharacterArcRequest) =>
+    apiClient<ApiResult<CharacterArcItem>>(`/api/works/${workId}/characters/${characterId}/arcs/${arcId}`, { method: 'PUT', body: JSON.stringify(req) }),
+  delete: (workId: string, characterId: string, arcId: string) =>
+    apiClient<ApiResult<null>>(`/api/works/${workId}/characters/${characterId}/arcs/${arcId}`, { method: 'DELETE' }),
+}
