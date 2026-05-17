@@ -17,7 +17,7 @@
       @export-epub="handleExportEpub"
     />
 
-    <!-- 主体布局：侧边栏 + 编辑区 + AI对话面板 -->
+    <!-- 主体布局：侧边栏 + 编辑区 + 右侧面板(overlay) -->
     <div class="editor-layout">
       <!-- 章节侧边栏 -->
       <ChapterSidebar
@@ -28,18 +28,18 @@
         @new-chapter="openNewChapterModal"
       />
 
-      <!-- 右侧编辑区 -->
+      <!-- 编辑区 -->
       <div class="editor-main">
         <!-- AI 工具栏 -->
         <EditorToolbar
-          :show-characters="rightPanel === 'characters'"
-          :show-outline="rightPanel === 'outline'"
-          :show-ai-chat="rightPanel === 'ai'"
-          :show-foreshadowing="rightPanel === 'foreshadowing'"
-          :show-timeline="rightPanel === 'timeline'"
-          :show-volumes="rightPanel === 'volumes'"
-          :show-inspiration="rightPanel === 'inspiration'"
-          :show-graph="rightPanel === 'graph'"
+          :show-characters="rightTab === 'characters'"
+          :show-outline="rightTab === 'outline'"
+          :show-ai-chat="rightTab === 'ai'"
+          :show-foreshadowing="rightTab === 'foreshadowing'"
+          :show-timeline="rightTab === 'timeline'"
+          :show-volumes="rightTab === 'volumes'"
+          :show-inspiration="rightTab === 'inspiration'"
+          :show-graph="rightTab === 'graph'"
           :work-title="work?.title"
           :work-genre="work?.genre"
           :chapter-title="activeChapter?.title"
@@ -48,14 +48,14 @@
           @ai-write="handleAiWrite"
           @polish="(text: string) => handlePolish(text)"
           @inspire="(text: string) => handleInspire(text)"
-          @toggle-characters="rightPanel = rightPanel === 'characters' ? '' : 'characters'"
-          @toggle-outline="rightPanel = rightPanel === 'outline' ? '' : 'outline'"
-          @toggle-volumes="rightPanel = rightPanel === 'volumes' ? '' : 'volumes'"
-          @toggle-ai-chat="rightPanel = rightPanel === 'ai' ? '' : 'ai'"
-          @toggle-foreshadowing="rightPanel = rightPanel === 'foreshadowing' ? '' : 'foreshadowing'"
-          @toggle-timeline="rightPanel = rightPanel === 'timeline' ? '' : 'timeline'"
-          @toggle-inspiration="rightPanel = rightPanel === 'inspiration' ? '' : 'inspiration'"
-          @toggle-graph="rightPanel = rightPanel === 'graph' ? '' : 'graph'"
+          @toggle-characters="togglePanel('characters')"
+          @toggle-outline="togglePanel('outline')"
+          @toggle-volumes="togglePanel('volumes')"
+          @toggle-ai-chat="togglePanel('ai')"
+          @toggle-foreshadowing="togglePanel('foreshadowing')"
+          @toggle-timeline="togglePanel('timeline')"
+          @toggle-inspiration="togglePanel('inspiration')"
+          @toggle-graph="togglePanel('graph')"
         />
 
         <!-- 内容区 -->
@@ -83,7 +83,6 @@
 
           <!-- 文档容器 -->
           <div class="editor-doc-wrapper">
-            <!-- 可编辑章节标题 -->
             <div
               ref="titleRef"
               class="editor-doc-title"
@@ -93,8 +92,6 @@
               @input="onTitleInput"
               @keydown.enter.prevent="focusEditor"
             ></div>
-
-            <!-- 正文编辑区 -->
             <div
               ref="editorRef"
               class="editor-doc"
@@ -108,74 +105,47 @@
         </div>
       </div>
 
-      <!-- 右侧面板 Tab 切换 -->
-      <div v-if="rightPanel" class="editor-right-panels">
-        <!-- <div class="right-tab-bar">
-          <button :class="['right-tab', { active: rightPanel === 'ai' }]" @click="rightPanel = rightPanel === 'ai' ? '' : 'ai'" title="AI 助手">AI</button>
-          <button :class="['right-tab', { active: rightPanel === 'characters' }]" @click="rightPanel = rightPanel === 'characters' ? '' : 'characters'" title="角色">角色</button>
-          <button :class="['right-tab', { active: rightPanel === 'outline' }]" @click="rightPanel = rightPanel === 'outline' ? '' : 'outline'" title="大纲">大纲</button>
-        </div> -->
-
-        <Transition name="panel-slide">
-          <AiChatPanel
-            v-if="rightPanel === 'ai'"
-            :work="work"
-            :chapter="activeChapter"
-            :chapter-content="chapterContents[activeChapterId] ?? ''"
-            @close="rightPanel = ''"
-          />
-          <CharacterPanel
-            v-else-if="rightPanel === 'characters'"
-            :work-id="work?.id ?? ''"
-            :work-title="work?.title ?? ''"
-            :work-genre="work?.genre ?? ''"
-          />
-          <OutlinePanel
-            v-else-if="rightPanel === 'outline'"
-            :work-id="work?.id ?? ''"
-            :work-title="work?.title ?? ''"
-            :work-genre="work?.genre ?? ''"
-            :chapter-title="activeChapter?.title ?? ''"
-            :chapter-content="chapterContents[activeChapterId] ?? ''"
-          />
-          <VolumePanel
-            v-else-if="rightPanel === 'volumes'"
-            :work-id="work?.id ?? ''"
-            :chapters="chapters.map((c, i) => ({ id: c.id, workId: work?.id ?? '', volumeId: c.volumeId || '', title: c.title, sequence: i + 1, wordCount: c.wordCount || 0, status: c.badge || 'draft', summary: '', authorNotes: c.note || '', lastContentSavedAt: null }))"
-            @chapter-moved="handleChapterMoved"
-          />
-          <ForeshadowingPanel
-            v-else-if="rightPanel === 'foreshadowing'"
-            :work-id="work?.id ?? ''"
-          />
-          <TimelinePanel
-            v-else-if="rightPanel === 'timeline'"
-            :work-id="work?.id ?? ''"
-          />
-          <InspirationPanel
-            v-else-if="rightPanel === 'inspiration'"
-            :work-id="work?.id ?? ''"
-          />
-          <CharacterGraphView
-            v-else-if="rightPanel === 'graph'"
-            :work-id="work?.id ?? ''"
-          />
-          <VersionDiffPanel
-            v-else-if="rightPanel === 'version'"
-            :work-id="props.work?.id ?? ''"
-            :chapter-id="activeChapterId"
-            :current-content="chapterContents[activeChapterId] ?? ''"
-            @close="rightPanel = ''"
-            @restore="handleVersionRestore"
-          />
-          <WritingStatsPanel
-            v-else-if="rightPanel === 'stats'"
-            :chapters="chapters.map((c, i) => ({ id: c.id, title: c.title, wordCount: c.wordCount || 0, status: c.badge || 'draft', sequence: i + 1 }))"
-            :total-word-count="props.work?.totalWordCount || 0"
-            :daily-word-count="dailyWordCount"
-          />
-        </Transition>
-      </div>
+      <!-- 右侧面板 (overlay 模式，不挤压编辑区) -->
+      <Transition name="panel-slide">
+        <div v-if="rightTab" class="editor-right-panels">
+          <div class="right-tab-bar">
+            <button v-for="t in panelTabs" :key="t.key"
+              :class="['right-tab', { active: rightTab === t.key }]"
+              @click="rightTab = t.key"
+              :title="t.label"
+            >
+              <svg v-html="t.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"></svg>
+              <span>{{ t.label }}</span>
+            </button>
+            <button class="right-tab right-tab-close" @click="rightTab = ''" title="关闭面板">×</button>
+          </div>
+          <div class="right-panel-content">
+            <AiChatPanel v-if="rightTab === 'ai'"
+              :work="work" :chapter="activeChapter"
+              :chapter-content="chapterContents[activeChapterId] ?? ''"
+              @close="rightTab = ''" />
+            <CharacterPanel v-else-if="rightTab === 'characters'"
+              :work-id="work?.id ?? ''" :work-title="work?.title ?? ''" :work-genre="work?.genre ?? ''" />
+            <OutlinePanel v-else-if="rightTab === 'outline'"
+              :work-id="work?.id ?? ''" :work-title="work?.title ?? ''" :work-genre="work?.genre ?? ''"
+              :chapter-title="activeChapter?.title ?? ''" :chapter-content="chapterContents[activeChapterId] ?? ''" />
+            <VolumePanel v-else-if="rightTab === 'volumes'"
+              :work-id="work?.id ?? ''"
+              :chapters="chaptersVolumes" @chapter-moved="handleChapterMoved" />
+            <ForeshadowingPanel v-else-if="rightTab === 'foreshadowing'" :work-id="work?.id ?? ''" />
+            <TimelinePanel v-else-if="rightTab === 'timeline'" :work-id="work?.id ?? ''" />
+            <InspirationPanel v-else-if="rightTab === 'inspiration'" :work-id="work?.id ?? ''" />
+            <CharacterGraphView v-else-if="rightTab === 'graph'" :work-id="work?.id ?? ''" />
+            <VersionDiffPanel v-else-if="rightTab === 'version'"
+              :work-id="props.work?.id ?? ''" :chapter-id="activeChapterId"
+              :current-content="chapterContents[activeChapterId] ?? ''"
+              @close="rightTab = ''" @restore="handleVersionRestore" />
+            <WritingStatsPanel v-else-if="rightTab === 'stats'"
+              :chapters="chaptersStats" :total-word-count="props.work?.totalWordCount || 0"
+              :daily-word-count="dailyWordCount" />
+          </div>
+        </div>
+      </Transition>
     </div>
 
     <!-- 编辑器设置面板 -->
@@ -500,22 +470,6 @@ function handlePolish(text: string) {
   notify.success('润色结果已替换到编辑器（可 Ctrl+Z 撤销）')
 }
 
-function handleInspire(text: string) {
-  if (text.startsWith('（') && text.endsWith('）')) {
-    notify.info(text)
-    return
-  }
-  rightPanel.value = 'ai'
-  nextTick(() => {
-    const panel = document.querySelector('.ai-chat-panel')
-    if (panel) {
-      const event = new CustomEvent('ai-inspire', { detail: text })
-      panel.dispatchEvent(event)
-    }
-  })
-  notify.success('灵感已生成，查看 AI 对话面板')
-}
-
 function handleVersionRestore(content: string) {
   if (!editorRef.value) return
   editorRef.value.innerHTML = ''
@@ -579,8 +533,42 @@ async function handleSave() {
 }
 
 // ==================== 侧边板 ====================
-const rightPanel = ref('')
+const rightTab = ref('')
+const panelTabs = [
+  { key: 'ai', label: 'AI', icon: '<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>' },
+  { key: 'characters', label: '角色', icon: '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>' },
+  { key: 'outline', label: '大纲', icon: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>' },
+  { key: 'graph', label: '图谱', icon: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="10.5" y1="7.5" x2="6.5" y2="16.5"/><line x1="13.5" y1="7.5" x2="17.5" y2="16.5"/><line x1="8" y1="19" x2="16" y2="19"/>' },
+]
 const showSettings = ref(false)
+
+function togglePanel(tab: string) {
+  rightTab.value = rightTab.value === tab ? '' : tab
+}
+
+function handleInspire(text: string) {
+  if (text.startsWith('（') && text.endsWith('）')) {
+    notify.info(text)
+    return
+  }
+  rightTab.value = 'ai'
+  nextTick(() => {
+    const panel = document.querySelector('.ai-chat-panel')
+    if (panel) {
+      const event = new CustomEvent('ai-inspire', { detail: text })
+      panel.dispatchEvent(event)
+    }
+  })
+  notify.success('灵感已生成，查看 AI 对话面板')
+}
+
+const chaptersVolumes = computed(() =>
+  chapters.value.map((c, i) => ({ id: c.id, workId: props.work?.id ?? '', volumeId: c.volumeId || '', title: c.title, sequence: i + 1, wordCount: c.wordCount || 0, status: c.badge || 'draft', summary: '', authorNotes: c.note || '', lastContentSavedAt: null }))
+)
+
+const chaptersStats = computed(() =>
+  chapters.value.map((c, i) => ({ id: c.id, title: c.title, wordCount: c.wordCount || 0, status: c.badge || 'draft', sequence: i + 1 }))
+)
 
 // ==================== 编辑器设置 ====================
 const DEFAULT_SETTINGS: EditorSettings = {
