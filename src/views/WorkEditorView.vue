@@ -107,7 +107,7 @@
 
       <!-- 右侧面板 (overlay 模式，不挤压编辑区) -->
       <Transition name="panel-slide">
-        <div v-if="rightTab" class="editor-right-panels">
+        <div class="editor-right-panels">
           <div class="right-tab-bar">
             <button v-for="t in panelTabs" :key="t.key"
               :class="['right-tab', { active: rightTab === t.key }]"
@@ -117,13 +117,13 @@
               <svg v-html="t.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"></svg>
               <span>{{ t.label }}</span>
             </button>
-            <button class="right-tab right-tab-close" @click="rightTab = ''" title="关闭面板">×</button>
+            <button class="right-tab right-tab-close" @click="rightTab = 'ai'" title="返回 AI">×</button>
           </div>
           <div class="right-panel-content">
             <AiChatPanel v-if="rightTab === 'ai'"
               :work="work" :chapter="activeChapter"
               :chapter-content="chapterContents[activeChapterId] ?? ''"
-              @close="rightTab = ''" />
+              @close="rightTab = 'ai'" />
             <CharacterPanel v-else-if="rightTab === 'characters'"
               :work-id="work?.id ?? ''" :work-title="work?.title ?? ''" :work-genre="work?.genre ?? ''" />
             <OutlinePanel v-else-if="rightTab === 'outline'"
@@ -138,8 +138,7 @@
             <CharacterGraphView v-else-if="rightTab === 'graph'" :work-id="work?.id ?? ''" />
             <VersionDiffPanel v-else-if="rightTab === 'version'"
               :work-id="props.work?.id ?? ''" :chapter-id="activeChapterId"
-              :current-content="chapterContents[activeChapterId] ?? ''"
-              @close="rightTab = ''" @restore="handleVersionRestore" />
+              :current-content="chapterContents[activeChapterId] ?? ''" @restore="handleVersionRestore" />
             <WritingStatsPanel v-else-if="rightTab === 'stats'"
               :chapters="chaptersStats" :total-word-count="props.work?.totalWordCount || 0"
               :daily-word-count="dailyWordCount" />
@@ -533,7 +532,7 @@ async function handleSave() {
 }
 
 // ==================== 侧边板 ====================
-const rightTab = ref('')
+const rightTab = ref('ai')
 const panelTabs = [
   { key: 'ai', label: 'AI', icon: '<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>' },
   { key: 'characters', label: '角色', icon: '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>' },
@@ -543,7 +542,7 @@ const panelTabs = [
 const showSettings = ref(false)
 
 function togglePanel(tab: string) {
-  rightTab.value = rightTab.value === tab ? '' : tab
+  rightTab.value = rightTab.value === tab ? 'ai' : tab
 }
 
 function handleInspire(text: string) {
