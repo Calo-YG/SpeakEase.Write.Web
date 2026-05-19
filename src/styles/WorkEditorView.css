@@ -149,7 +149,7 @@
 .editor-right-panels {
   position: absolute;
   right: 0; top: 0; bottom: 0;
-  width: 500px;
+  width: 600px;
   display: flex;
   flex-direction: column;
   background: var(--editor-bg, #fff);
@@ -229,7 +229,7 @@
 /* ── 响应式 ── */
 @media (max-width: 1200px) {
   .editor-content-area { padding: 1.25rem 1.5rem; }
-  .editor-right-panels { width: 440px; }
+  .editor-right-panels { width: 520px; }
 }
 @media (max-width: 768px) {
   .editor-content-area { padding: 1rem 0.75rem; }
