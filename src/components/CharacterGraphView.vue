@@ -26,6 +26,7 @@
 
     <div v-else class="graph-canvas-container">
       <svg
+        ref="svgRef"
         viewBox="0 0 1200 800"
         preserveAspectRatio="xMidYMid meet"
         class="graph-svg"
@@ -48,10 +49,11 @@
           <g
             v-for="node in graphData.nodes"
             :key="node.id"
-            :transform="`translate(${posMap[node.id]?.x ?? 0},${posMap[node.id]?.y ?? 0})`"
-            @click.stop="handleNodeClick(node)"
+            :transform="`translate(${nodePositions[node.id]?.x ?? 0},${nodePositions[node.id]?.y ?? 0})`"
+            @mousedown="(e: MouseEvent) => onNodeMouseDown(e, node)"
+            @click.stop
             class="graph-node-card"
-            :class="{ selected: selectedNodeId === node.id }"
+            :class="{ selected: selectedNodeId === node.id, dragging: draggingNodeId === node.id }"
           >
             <title>{{ node.displayName }} · {{ NODE_TYPE_LABELS[node.nodeType] ?? node.nodeType }} · 重要度 {{ node.importance }}/10</title>
             <rect
@@ -140,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { characterApi, type CharacterItem } from '@/lib/api/character'
 import { graphApi, type CharacterGraphItem, type CharacterGraphNode } from '@/lib/api/extras'
 import { arcApi, type CharacterArcItem } from '@/lib/api/extras'
@@ -160,6 +162,12 @@ const characterArcs = ref<CharacterArcItem[]>([])
 const selectedNodeRelationships = ref<CharacterRelationshipItem[]>([])
 const characters = ref<CharacterItem[]>([])
 const allRelationships = ref<CharacterRelationshipItem[]>([])
+
+const svgRef = ref<SVGSVGElement | null>(null)
+const nodePositions = ref<Record<string, { x: number; y: number }>>({})
+const draggingNodeId = ref<string | null>(null)
+const dragOffset = ref({ x: 0, y: 0 })
+const dragMoved = ref(false)
 
 const panX = ref(0)
 const panY = ref(0)
@@ -227,7 +235,7 @@ const detailRows = computed(() => {
 const CARD_W = 72
 const CARD_H = 40
 
-const posMap = computed(() => {
+function initPositions() {
   const nodes = graphData.value?.nodes ?? []
   const n = nodes.length
   const cx = 600, cy = 400, r = Math.min(n * 42, 280)
@@ -240,11 +248,81 @@ const posMap = computed(() => {
       y: cy + Math.sin(angle) * r - CARD_H / 2,
     }
   })
-  return map
+  nodePositions.value = map
+}
+
+watch(() => graphData.value?.id, () => {
+  initPositions()
+})
+
+function svgPoint(e: MouseEvent): DOMPoint | null {
+  if (!svgRef.value) return null
+  const pt = svgRef.value.createSVGPoint()
+  pt.x = e.clientX
+  pt.y = e.clientY
+  const ctm = svgRef.value.getScreenCTM()
+  if (!ctm) return null
+  return pt.matrixTransform(ctm.inverse())
+}
+
+function onNodeMouseDown(e: MouseEvent, node: CharacterGraphNode) {
+  if (e.button !== 0) return
+  e.stopPropagation()
+
+  const pt = svgPoint(e)
+  if (!pt) return
+
+  const pos = nodePositions.value[node.id]
+  if (!pos) return
+
+  const localX = (pt.x - panX.value) / scale.value
+  const localY = (pt.y - panY.value) / scale.value
+
+  draggingNodeId.value = node.id
+  dragOffset.value = { x: localX - pos.x, y: localY - pos.y }
+  dragMoved.value = false
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp, { once: true })
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!draggingNodeId.value) return
+
+  const pt = svgPoint(e)
+  if (!pt) return
+
+  const localX = (pt.x - panX.value) / scale.value
+  const localY = (pt.y - panY.value) / scale.value
+
+  const newX = localX - dragOffset.value.x
+  const newY = localY - dragOffset.value.y
+  const dx = Math.abs(newX - (nodePositions.value[draggingNodeId.value]?.x ?? 0))
+  const dy = Math.abs(newY - (nodePositions.value[draggingNodeId.value]?.y ?? 0))
+
+  if (dx > 2 || dy > 2) dragMoved.value = true
+
+  nodePositions.value[draggingNodeId.value] = { x: newX, y: newY }
+}
+
+function onMouseUp() {
+  document.removeEventListener('mousemove', onMouseMove)
+
+  if (!dragMoved.value && draggingNodeId.value) {
+    const nodeId = draggingNodeId.value
+    const node = graphData.value?.nodes.find(n => n.id === nodeId)
+    if (node) handleNodeClick(node)
+  }
+
+  draggingNodeId.value = null
+}
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onMouseMove)
 })
 
 function lineX(fromId: string, toId: string) {
-  const f = posMap.value[fromId], t = posMap.value[toId]
+  const f = nodePositions.value[fromId], t = nodePositions.value[toId]
   if (!f || !t) return 0
   const cx = f.x + CARD_W / 2, cy = f.y + CARD_H / 2
   const dx = t.x + CARD_W / 2 - cx
@@ -253,7 +331,7 @@ function lineX(fromId: string, toId: string) {
   return cx + (dx / len) * (CARD_W / 2 + 4)
 }
 function lineY(fromId: string, toId: string) {
-  const f = posMap.value[fromId], t = posMap.value[toId]
+  const f = nodePositions.value[fromId], t = nodePositions.value[toId]
   if (!f || !t) return 0
   const cx = f.x + CARD_W / 2, cy = f.y + CARD_H / 2
   const dx = t.x + CARD_W / 2 - cx
@@ -419,8 +497,9 @@ defineExpose({ fetchGraphs })
 .graph-canvas-container { flex: 1; position: relative; overflow: hidden; background: #12122a; }
 .graph-svg { width: 100%; height: 100%; display: block; }
 
-.graph-node-card { cursor: pointer; transition: opacity .15s; }
+.graph-node-card { cursor: grab; transition: opacity .15s; }
 .graph-node-card:hover { opacity: 0.85; }
+.graph-node-card.dragging { cursor: grabbing; opacity: 0.9; }
 .graph-node-card text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; user-select: none; pointer-events: none; }
 
 .graph-legend {
