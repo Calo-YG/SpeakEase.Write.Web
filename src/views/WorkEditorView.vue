@@ -30,8 +30,8 @@
 
       <!-- 编辑区 -->
       <div class="editor-main">
-        <!-- AI 工具栏 -->
         <EditorToolbar
+          v-show="false"
           :show-characters="rightTab === 'characters'"
           :show-outline="rightTab === 'outline'"
           :show-ai-chat="rightTab === 'ai'"
@@ -114,7 +114,7 @@
               @click="rightTab = t.key"
               :title="t.label"
             >
-              <svg v-html="t.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"></svg>
+              <svg v-html="t.icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"></svg>
               <span>{{ t.label }}</span>
             </button>
             <button class="right-tab right-tab-close" @click="rightTab = 'ai'" title="返回 AI">×</button>
@@ -537,7 +537,13 @@ const panelTabs = [
   { key: 'ai', label: 'AI', icon: '<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>' },
   { key: 'characters', label: '角色', icon: '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>' },
   { key: 'outline', label: '大纲', icon: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>' },
+  { key: 'volumes', label: '分卷', icon: '<path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>' },
+  { key: 'foreshadowing', label: '伏笔', icon: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>' },
+  { key: 'timeline', label: '时间线', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+  { key: 'inspiration', label: '灵感', icon: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>' },
   { key: 'graph', label: '图谱', icon: '<circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/><line x1="10.5" y1="7.5" x2="6.5" y2="16.5"/><line x1="13.5" y1="7.5" x2="17.5" y2="16.5"/><line x1="8" y1="19" x2="16" y2="19"/>' },
+  { key: 'version', label: '版本', icon: '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>' },
+  { key: 'stats', label: '统计', icon: '<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>' },
 ]
 const showSettings = ref(false)
 

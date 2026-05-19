@@ -1,12 +1,5 @@
 <template>
-  <div class="ai-chat-panel" :style="{ width: panelWidth + 'px' }">
-    <!-- 拖拽调宽把手 -->
-    <div
-      class="acp-resize-handle"
-      title="拖拽调整宽度"
-      @mousedown.prevent="onResizeStart"
-    ></div>
-
+  <div class="ai-chat-panel">
     <!-- 头部 -->
     <div class="acp-header">
       <div class="acp-header-left">
@@ -388,33 +381,6 @@ watch(() => props.work?.id, (workId) => {
   currentSessionId.value = ''
   if (workId) loadSessionHistory(workId)
 }, { immediate: true })
-
-// ── 拖拽调宽 ──
-const MIN_WIDTH = 300
-const MAX_WIDTH = 640
-const panelWidth = ref(420)
-
-function onResizeStart(e: MouseEvent) {
-  const startX = e.clientX
-  const startWidth = panelWidth.value
-
-  function onMove(ev: MouseEvent) {
-    const delta = startX - ev.clientX
-    panelWidth.value = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
-  }
-
-  function onUp() {
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp)
-    document.body.style.cursor = ''
-    document.body.style.userSelect = ''
-  }
-
-  document.body.style.cursor = 'ew-resize'
-  document.body.style.userSelect = 'none'
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onUp)
-}
 
 // ── 构建对话历史供 Agent 使用 ──
 function buildConversationHistory(): LLMChatMessage[] {
