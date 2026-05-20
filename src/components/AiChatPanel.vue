@@ -216,7 +216,7 @@ const props = defineProps<{
   chapterContent?: string
 }>()
 
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; chapterSaved: [data: { chapterId: string; sequence: number; title: string; content: string }] }>()
 
 // ── 快捷指令 ──
 const quickPrompts = [
@@ -489,6 +489,16 @@ async function sendMessage(text: string) {
             messages.value.push(toolMsg)
           }
           scrollToBottom()
+
+          if (info.contentType === 'chapter' && info.extraData) {
+            const seq = parseInt(info.extraData.sequence ?? '0', 10) || 0
+            emit('chapterSaved', {
+              chapterId: info.extraData.chapterId ?? '',
+              sequence: seq,
+              title: info.extraData.title ?? '',
+              content: info.extraData.content ?? '',
+            })
+          }
         },
         onMeta(data) {
           if (data.stage === 'context_compressed') {

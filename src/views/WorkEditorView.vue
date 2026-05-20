@@ -123,7 +123,8 @@
             <AiChatPanel v-if="rightTab === 'ai'"
               :work="work" :chapter="activeChapter"
               :chapter-content="chapterContents[activeChapterId] ?? ''"
-              @close="rightTab = 'ai'" />
+              @close="rightTab = 'ai'"
+              @chapter-saved="handleChapterSaved" />
             <CharacterPanel v-else-if="rightTab === 'characters'"
               :work-id="work?.id ?? ''" :work-title="work?.title ?? ''" :work-genre="work?.genre ?? ''" />
             <OutlinePanel v-else-if="rightTab === 'outline'"
@@ -331,10 +332,31 @@ const isChapterEmpty = computed(() => !hasContent.value)
 function loadChapterContent(chId: string) {
   if (!editorRef.value) return
   editorRef.value.innerHTML = chapterContents[chId] ?? ''
-  // 同步章节标题
   if (titleRef.value) {
     const ch = chapters.value.find(c => c.id === chId)
     titleRef.value.innerText = ch?.title ?? ''
+  }
+}
+
+async function handleChapterSaved(data: { chapterId: string; sequence: number; title: string; content: string }) {
+  chapterContents[data.chapterId] = data.content
+
+  const existing = chapters.value.find(c => c.id === data.chapterId)
+  if (existing) {
+    existing.title = data.title
+    existing.wordCount = data.content.replace(/\s/g, '').length
+  } else {
+    chapters.value.push({
+      id: data.chapterId,
+      title: data.title,
+      wordCount: data.content.replace(/\s/g, '').length,
+      volumeId: '',
+      badge: 'draft' as const,
+    })
+  }
+
+  if (data.chapterId === activeChapterId.value) {
+    nextTick(() => loadChapterContent(data.chapterId))
   }
 }
 

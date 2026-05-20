@@ -33,6 +33,8 @@ export interface LLMToolExecutionResult {
   toolName: string
   success: boolean
   content: string
+  contentType: string | null
+  extraData: Record<string, string> | null
   errorCode: string | null
 }
 
